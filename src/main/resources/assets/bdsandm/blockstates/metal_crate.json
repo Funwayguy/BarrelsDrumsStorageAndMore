@@ -1,0 +1,26 @@
+{
+    "forge_marker": 1,
+    "defaults": {
+        "textures": {
+            "#None": "bdsandm:blocks/metal_crate",
+            "#A": "bdsandm:blocks/metal_crate",
+            "#B": "bdsandm:blocks/metal_crate_detail_0"
+        },
+        "model": "bdsandm:metal_crate.obj",
+        "custom": {"flip-v":true}
+     },
+    "variants": {
+        "normal": [{}],
+        "inventory": [{
+            "transform": "forge:default-block"
+        }],
+        "facing": {
+            "down": {"model": "bdsandm:metal_crate.obj", "x": 0},
+            "up": {"model": "bdsandm:metal_crate.obj", "x": 180},
+            "north": {"model": "bdsandm:metal_crate.obj", "x": 90, "y": 180},
+            "east": {"model": "bdsandm:metal_crate.obj", "x": 90, "y": 270},
+            "south": {"model": "bdsandm:metal_crate.obj", "x": 90},
+            "west": {"model": "bdsandm:metal_crate.obj", "x": 90, "y": 90}
+        }
+    }
+}

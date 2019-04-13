@@ -1,0 +1,24 @@
+{
+    "forge_marker": 1,
+    "defaults": {
+        "textures": {
+            "#None": "bdsandm:blocks/wood_crate"
+        },
+        "model": "bdsandm:wood_crate.obj",
+        "custom": {"flip-v":true}
+     },
+    "variants": {
+        "normal": [{}],
+        "inventory": [{
+            "transform": "forge:default-block"
+        }],
+        "facing": {
+            "down": {"model": "bdsandm:wood_crate.obj", "x": 0},
+            "up": {"model": "bdsandm:wood_crate.obj", "x": 180},
+            "north": {"model": "bdsandm:wood_crate.obj", "x": 90, "y": 180},
+            "east": {"model": "bdsandm:wood_crate.obj", "x": 90, "y": 270},
+            "south": {"model": "bdsandm:wood_crate.obj", "x": 90},
+            "west": {"model": "bdsandm:wood_crate.obj", "x": 90, "y": 90}
+        }
+    }
+}

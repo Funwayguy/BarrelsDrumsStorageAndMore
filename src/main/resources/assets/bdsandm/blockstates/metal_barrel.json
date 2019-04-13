@@ -1,0 +1,28 @@
+{
+    "forge_marker": 1,
+    "defaults": {
+        "textures": {
+            "#None": "bdsandm:blocks/metal_barrel",
+            "#A": "bdsandm:blocks/metal_barrel",
+            "#B": "bdsandm:blocks/metal_barrel_detail_0",
+            "#C": "bdsandm:blocks/metal_barrel_detail_1",
+            "#D": "bdsandm:blocks/metal_barrel_detail_2"
+        },
+        "model": "bdsandm:metal_barrel.obj",
+        "custom": {"flip-v":true}
+     },
+    "variants": {
+        "normal": [{}],
+        "inventory": [{
+            "transform": "forge:default-block"
+        }],
+        "facing": {
+            "down": {"model": "bdsandm:metal_barrel.obj", "x": 0},
+            "up": {"model": "bdsandm:metal_barrel.obj", "x": 180},
+            "north": {"model": "bdsandm:metal_barrel_supported.obj", "x": 90, "y": 180},
+            "east": {"model": "bdsandm:metal_barrel_supported.obj", "x": 90, "y": 270},
+            "south": {"model": "bdsandm:metal_barrel_supported.obj", "x": 90},
+            "west": {"model": "bdsandm:metal_barrel_supported.obj", "x": 90, "y": 90}
+        }
+    }
+}

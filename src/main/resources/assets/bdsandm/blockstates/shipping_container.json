@@ -1,0 +1,36 @@
+{
+    "forge_marker": 1,
+    "defaults": {
+        "textures": {
+            "#None": "bdsandm:blocks/shipping_container",
+            "#A": "bdsandm:blocks/shipping_container",
+            "#B": "bdsandm:blocks/shipping_container_detail_0",
+            "#C": "bdsandm:blocks/shipping_container_detail_1"
+        },
+        "model": "bdsandm:shipping_container.obj",
+        "custom": {"flip-v":true}
+     },
+    "variants": {
+        "normal": [{}],
+        "inventory": [{
+            "transform": "forge:default-block",
+            "model": "bdsandm:shipping_container_mini.obj"
+        }],
+        "index=0,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=1,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=2,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=3,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=4,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=5,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=6,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=7,turned=false": { "model": "bdsandm:shipping_container.obj" },
+        "index=0,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=1,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=2,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=3,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=4,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=5,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=6,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 },
+        "index=7,turned=true": { "model": "bdsandm:shipping_container.obj", "y": 90 }
+    }
+}
