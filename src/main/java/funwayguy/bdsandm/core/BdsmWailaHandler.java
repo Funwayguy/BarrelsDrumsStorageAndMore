@@ -18,6 +18,19 @@ public class BdsmWailaHandler implements IWailaDataProvider
     
     @Nonnull
     @Override
+    public ItemStack getWailaStack(IWailaDataAccessor accessor, IWailaConfigHandler config)
+    {
+        if(accessor.getTileEntity() == null) return accessor.getStack();
+        
+        ICrate crate = accessor.getTileEntity().getCapability(BdsmCapabilies.CRATE_CAP, null);
+        
+        if(crate != null && !crate.getRefItem().isEmpty()) return crate.getRefItem();
+        
+        return accessor.getStack();
+    }
+    
+    @Nonnull
+    @Override
     public List<String> getWailaBody(ItemStack itemStack, List<String> tooltip, IWailaDataAccessor accessor, IWailaConfigHandler config)
     {
         if(accessor.getTileEntity() == null) return tooltip;

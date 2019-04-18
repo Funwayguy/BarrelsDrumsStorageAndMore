@@ -2,6 +2,7 @@ package funwayguy.bdsandm.items;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
@@ -10,6 +11,12 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 
 public class ItemShipping extends ItemBlock
 {
@@ -18,7 +25,9 @@ public class ItemShipping extends ItemBlock
         super(block);
     }
     
-    public EnumActionResult onItemUse(EntityPlayer player, World worldIn, BlockPos pos, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    @Nonnull
+    @Override
+    public EnumActionResult onItemUse(EntityPlayer player, World worldIn, @Nonnull BlockPos pos, @Nonnull EnumHand hand, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ)
     {
         ItemStack held = player.getHeldItem(hand);
         
@@ -66,5 +75,14 @@ public class ItemShipping extends ItemBlock
         }
         
         return super.onItemUse(player, worldIn, origPos, hand, facing, hitX, hitY, hitZ);
+    }
+    
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void addInformation(@Nonnull ItemStack stack, @Nullable World worldIn, @Nonnull List<String> tooltip, @Nonnull ITooltipFlag flagIn)
+    {
+        super.addInformation(stack, worldIn, tooltip, flagIn);
+        
+        tooltip.add("Merges other containers of items, fluids and energy within a single block");
     }
 }

@@ -52,7 +52,7 @@ public class PacketBdsm implements IMessage
                 World world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(message.tags.getInteger("dim"));
                 BlockPos pos = BlockPos.fromLong(message.tags.getLong("pos"));
                 int[] colors = message.tags.getIntArray("color");
-    
+                
                 IBlockState state = world.getBlockState(pos);
                 if(state.getBlock() instanceof IBdsmColorBlock)
                 {

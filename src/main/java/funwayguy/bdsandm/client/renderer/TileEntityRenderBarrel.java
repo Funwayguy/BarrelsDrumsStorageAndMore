@@ -169,6 +169,13 @@ public class TileEntityRenderBarrel extends TileEntitySpecialRenderer<TileEntity
 			        mc.renderEngine.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
 					TextureAtlasSprite fluidTx = mc.getTextureMapBlocks().getAtlasSprite(barrel.getRefFluid().getFluid().getStill(barrel.getRefFluid()).toString());
 					
+					int color = barrel.getRefFluid().getFluid().getColor(barrel.getRefFluid());
+					int b = color & 255;
+					int g = (color >> 8) & 255;
+					int r = (color >> 16) & 255;
+					int a = (color >> 24) & 255;
+					GlStateManager.color(r/255F, g/255F, b/255F, a/255F);
+					
                     Tessellator tessellator = Tessellator.getInstance();
                     BufferBuilder vertexbuffer = tessellator.getBuffer();
                     vertexbuffer.begin(7, DefaultVertexFormats.POSITION_TEX);

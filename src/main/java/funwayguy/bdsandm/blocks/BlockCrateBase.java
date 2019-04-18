@@ -16,9 +16,12 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 
@@ -81,9 +84,31 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         ItemStack ref = crate.getRefItem();
         ItemStack held = player.getHeldItem(hand);
         
-        if(!held.isEmpty() && (ref.isEmpty() || crate.canMergeWith(held)))
+        if(!held.isEmpty() && (ref.isEmpty() || crate.canMergeWith(held) || held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null)))
         {
-            player.setHeldItem(hand, crate.insertItem(crate.getSlots() - 1, held, false));
+            if(held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null))
+            {
+                IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
+                assert heldCrate != null;
+                
+                for(int s = 0; s < heldCrate.getSlots(); s++)
+                {
+                    ItemStack transfer = heldCrate.extractItem(s, Integer.MAX_VALUE, true);
+                    
+                    ItemStack transStack = transfer.copy();
+                    transStack.setCount(transStack.getCount() * held.getCount());
+                    int prev = transStack.getCount();
+                    
+                    if(prev > 0 && (ref.isEmpty() || crate.canMergeWith(transStack)))
+                    {
+                        transStack = crate.insertItem(crate.getSlots() - 1, transStack, false);
+                        if(transStack.getCount() != prev) heldCrate.extractItem(s, (prev - transStack.getCount()) / held.getCount(), false);
+                    }
+                }
+            } else
+            {
+                player.setHeldItem(hand, crate.insertItem(crate.getSlots() - 1, held, false));
+            }
         } else if(!ref.isEmpty()) // Insert all
         {
             for(int i = 0; i < player.inventory.getSizeInventory(); i++)
@@ -253,5 +278,30 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         }
         
         return changed;
+    }
+    
+    @Override
+    @Deprecated
+    public boolean hasComparatorInputOverride(IBlockState state)
+    {
+        return true;
+    }
+    
+    @Override
+    @Deprecated
+    public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
+    {
+        TileEntity tileBarrel = worldIn.getTileEntity(pos);
+        
+        if(tileBarrel instanceof TileEntityCrate)
+        {
+            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
+            max *= tileCap.getRefItem().getMaxStackSize();
+            double fill = tileCap.getCount() / (double)max;
+            return MathHelper.floor(fill * 14D) + (tileCap.getCount() > 0 ? 1 : 0);
+        }
+        
+        return 0;
     }
 }

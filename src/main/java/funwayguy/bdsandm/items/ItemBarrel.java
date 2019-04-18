@@ -22,6 +22,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.text.DecimalFormat;
 import java.util.List;
 
 public class ItemBarrel extends ItemBlock implements IBdsmColorItem
@@ -90,11 +91,11 @@ public class ItemBarrel extends ItemBlock implements IBdsmColorItem
         if(!barrel.getRefItem().isEmpty())
         {
             tooltip.add("Item: " + barrel.getRefItem().getDisplayName());
-            tooltip.add("Amount: " + barrel.getCount());
+            tooltip.add("Amount: " + formatValue(barrel.getCount()));
         } else if(barrel.getRefFluid() != null)
         {
             tooltip.add("Fluid: " + barrel.getRefFluid().getLocalizedName());
-            tooltip.add("Amount: " + barrel.getCount() + "mB");
+            tooltip.add("Amount: " + formatValue(barrel.getCount()) + " mB");
         } else if(stack.getTagCompound() != null && stack.getTagCompound().hasKey("barrelCap", 10))
         {
             tooltip.add("[EMPTY]");
@@ -136,5 +137,26 @@ public class ItemBarrel extends ItemBlock implements IBdsmColorItem
         }
         
         return true;
+    }
+    
+    private static final DecimalFormat df = new DecimalFormat("0.##");
+    private static final String[] suffixes = new String[]{"","K","M","B","T"};
+    
+    private static String formatValue(long value)
+    {
+        String s = "";
+        double n = 1;
+        
+        for(int i = suffixes.length - 1; i >= 0; i--)
+        {
+            n = Math.pow(1000D, i);
+            if(Math.abs(value) >= n)
+            {
+                s = suffixes[i];
+                break;
+            }
+        }
+        
+        return df.format(value / n) + s;
     }
 }

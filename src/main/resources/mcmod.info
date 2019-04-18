@@ -2,7 +2,7 @@
   {
     "modid": "bdsandm",
     "name": "Barrels, Drums, Storage & More",
-    "description": "Upgradable storage options from early game to industrial sized factories",
+    "description": "Upgradeable storage options from early game to industrial sized factories",
     "version": "${version}",
     "mcversion": "${mcversion}",
     "url": "",
@@ -12,7 +12,7 @@
       "Darkosto"
     ],
     "credits": "",
-    "logoFile": "",
+    "logoFile": "title.png",
     "screenshots": [],
     "useDependencyInformation": true,
     "dependencies": ["waila"]

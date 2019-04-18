@@ -79,8 +79,8 @@ public class RegEventHandler
     {
         setupRecipes = true;
         
-        addShapedRecipe("wood_crate", "bdsm", new ItemStack(BDSM.blockWoodCrate), "SSS", "SFS", "SSS", 'S', "slabWood", new ItemStack(Items.ITEM_FRAME));
-        addShapedRecipe("wood_barrel", "bdsm", new ItemStack(BDSM.blockWoodBarrel), "WSW", "W W", "WSW", 'S', "slabWood", 'W', "plankWood");
+        addShapedRecipe("wood_crate", "bdsm", new ItemStack(BDSM.blockWoodCrate), "WWW", "WFW", "WWW", 'W', "plankWood", 'F', new ItemStack(Items.ITEM_FRAME));
+        addShapedRecipe("wood_barrel", "bdsm", new ItemStack(BDSM.blockWoodBarrel), "WWW", "WBW", "WWW", 'W', "plankWood", 'B', new ItemStack(Items.BUCKET));
         
         addShapedRecipe("metal_crate", "bdsm", new ItemStack(BDSM.blockMetalBarrel), "III", "ICI", "III", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodCrate));
         addShapedRecipe("wood_barrel", "bdsm", new ItemStack(BDSM.blockMetalBarrel), "III", "IBI", "III", 'I', "ingotIron", 'B', new ItemStack(BDSM.blockWoodBarrel));
@@ -93,6 +93,21 @@ public class RegEventHandler
         
         addShapedRecipe("color_tool_c", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodCrate));
         addShapedRecipe("color_tool_b", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodBarrel));
+        
+        addShapelessRecipe("upgrade_uninstall", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 7), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST));
+        addShapelessRecipe("upgrade_ore_dict", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 5), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST), new ItemStack(Blocks.IRON_ORE));
+        addShapelessRecipe("upgrade_void", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 6), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST), new ItemStack(Items.ENDER_PEARL));
+        
+        addShapelessRecipe("upgrade_64", "bdsm", new ItemStack(BDSM.itemUpgrade, 4, 0), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST), new ItemStack(Items.IRON_INGOT));
+        addShapelessRecipe("upgrade_64_split", "bdsm", new ItemStack(BDSM.itemUpgrade, 4, 0), new ItemStack(BDSM.itemUpgrade, 1, 1));
+        
+        addShapelessRecipe("upgrade_256", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 1), new ItemStack(BDSM.itemUpgrade, 1, 0), new ItemStack(BDSM.itemUpgrade, 1, 0), new ItemStack(BDSM.itemUpgrade, 1, 0), new ItemStack(BDSM.itemUpgrade, 1, 0));
+        addShapelessRecipe("upgrade_256_split", "bdsm", new ItemStack(BDSM.itemUpgrade, 4, 1), new ItemStack(BDSM.itemUpgrade, 1, 2));
+        
+        addShapelessRecipe("upgrade_1024", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 2), new ItemStack(BDSM.itemUpgrade, 1, 1), new ItemStack(BDSM.itemUpgrade, 1, 1), new ItemStack(BDSM.itemUpgrade, 1, 1), new ItemStack(BDSM.itemUpgrade, 1, 1));
+        addShapelessRecipe("upgrade_1024_split", "bdsm", new ItemStack(BDSM.itemUpgrade, 4, 2), new ItemStack(BDSM.itemUpgrade, 1, 3));
+        
+        addShapelessRecipe("upgrade_4096", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 3), new ItemStack(BDSM.itemUpgrade, 1, 2), new ItemStack(BDSM.itemUpgrade, 1, 2), new ItemStack(BDSM.itemUpgrade, 1, 2), new ItemStack(BDSM.itemUpgrade, 1, 2));
     }
     
     public static void initContent()

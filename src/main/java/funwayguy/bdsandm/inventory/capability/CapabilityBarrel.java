@@ -366,20 +366,30 @@ public class CapabilityBarrel implements ICrate, IBarrel
             } else if(!simulate)
             {
                 refStack = stack.copy();
-                if(stackCapacity >= 0) count = stack.getCount();
+                count = Math.min(stack.getCount(), (stackCapacity < 0 ? (1 << 15) : stackCapacity) * stack.getMaxStackSize());
                 refStack.setCount(1);
                 
                 cachedOres.clear();
                 int[] aryIDs = OreDictionary.getOreIDs(refStack);
+                topLoop:
                 for(int id : aryIDs)
                 {
-                    cachedOres.add(new OreIngredient(OreDictionary.getOreName(id)));
+                    String name = OreDictionary.getOreName(id);
+                    for(String bl : BdsmConfig.oreDictBlacklist)
+                    {
+                        if(bl.matches(name)) continue topLoop;
+                    }
+                    cachedOres.add(new OreIngredient(name));
                 }
                 
                 syncContainer();
             }
             
-            return ItemStack.EMPTY;
+            int used = Math.min(stack.getCount(), (stackCapacity < 0 ? (1 << 15) : stackCapacity) * stack.getMaxStackSize());
+            if(used > stack.getCount()) return ItemStack.EMPTY;
+            ItemStack rStack = stack.copy();
+            rStack.shrink(used);
+            return rStack;
         } else if(!canMergeWith(stack))
         {
             return stack;
@@ -650,9 +660,15 @@ public class CapabilityBarrel implements ICrate, IBarrel
         {
             cachedOres.clear();
             int[] aryIDs = OreDictionary.getOreIDs(refStack);
+            topLoop:
             for(int id : aryIDs)
             {
-                cachedOres.add(new OreIngredient(OreDictionary.getOreName(id)));
+                String name = OreDictionary.getOreName(id);
+                for(String bl : BdsmConfig.oreDictBlacklist)
+                {
+                    if(bl.matches(name)) continue topLoop;
+                }
+                cachedOres.add(new OreIngredient(name));
             }
             
             if(!slotRef.isEmpty() && canMergeWith(slotRef))

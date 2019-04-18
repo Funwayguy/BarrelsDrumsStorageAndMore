@@ -28,7 +28,6 @@ public class GuiColour extends GuiScreen
     private static final int[][] HISTORY = new int[10][4];
     
     // These are mostly used for when the data is sent off to the server for application
-    //private final IBdsmColorBlock block;
     private final World world;
     private final BlockPos pos;
     private final int[] colors;
@@ -39,7 +38,6 @@ public class GuiColour extends GuiScreen
     
     public GuiColour(IBdsmColorBlock block, World world, BlockPos pos)
     {
-        //this.block = block;
         this.world = world;
         this.pos = pos;
     
@@ -188,6 +186,22 @@ public class GuiColour extends GuiScreen
     {
         if(button.id == 0) // Apply
         {
+            int[] tmp = new int[HISTORY[0].length];
+            
+            for(int i = 0; i < tmp.length; i++)
+            {
+                if(i < colors.length)
+                {
+                    tmp[i] = colors[i];
+                } else if(lastHistory >= 0)
+                {
+                    tmp[i] = HISTORY[lastHistory][i];
+                } else
+                {
+                    tmp[i] = 0xFF000000;
+                }
+            }
+            
             // Shift history
             if(lastHistory != 0)
             {
@@ -198,16 +212,7 @@ public class GuiColour extends GuiScreen
             }
             
             // Save new history
-            for(int i = 0; i < HISTORY[0].length; i++)
-            {
-                if(i >= colors.length)
-                {
-                    HISTORY[0][i] = 0xFF000000;
-                } else
-                {
-                    HISTORY[0][i] = colors[i];
-                }
-            }
+            HISTORY[0] = tmp;
             
             // Send changes to server
             NBTTagCompound tags = new NBTTagCompound();

@@ -22,6 +22,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.text.DecimalFormat;
 import java.util.List;
 
 public class ItemCrate extends ItemBlock implements IBdsmColorItem
@@ -90,7 +91,7 @@ public class ItemCrate extends ItemBlock implements IBdsmColorItem
         if(!crate.getRefItem().isEmpty())
         {
             tooltip.add("Item: " + crate.getRefItem().getDisplayName());
-            tooltip.add("Amount: " + crate.getCount());
+            tooltip.add("Amount: " + formatValue(crate.getCount()));
         } else
         {
             tooltip.add("[EMPTY]");
@@ -132,5 +133,26 @@ public class ItemCrate extends ItemBlock implements IBdsmColorItem
         }
         
         return true;
+    }
+    
+    private static final DecimalFormat df = new DecimalFormat("0.##");
+    private static final String[] suffixes = new String[]{"","K","M","B","T"};
+    
+    private static String formatValue(long value)
+    {
+        String s = "";
+        double n = 1;
+        
+        for(int i = suffixes.length - 1; i >= 0; i--)
+        {
+            n = Math.pow(1000D, i);
+            if(Math.abs(value) >= n)
+            {
+                s = suffixes[i];
+                break;
+            }
+        }
+        
+        return df.format(value / n) + s;
     }
 }

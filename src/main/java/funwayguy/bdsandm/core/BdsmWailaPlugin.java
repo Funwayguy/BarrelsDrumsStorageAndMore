@@ -12,14 +12,10 @@ public class BdsmWailaPlugin implements IWailaPlugin
     @Override
     public void register(IWailaRegistrar registrar)
     {
-        registrar.registerHeadProvider(BdsmWailaHandler.INSTANCE, TileEntityCrate.class);
         registrar.registerBodyProvider(BdsmWailaHandler.INSTANCE, TileEntityCrate.class);
-        registrar.registerTailProvider(BdsmWailaHandler.INSTANCE, TileEntityCrate.class);
         registrar.registerStackProvider(BdsmWailaHandler.INSTANCE, TileEntityCrate.class);
         
-        registrar.registerHeadProvider(BdsmWailaHandler.INSTANCE, TileEntityBarrel.class);
         registrar.registerBodyProvider(BdsmWailaHandler.INSTANCE, TileEntityBarrel.class);
-        registrar.registerTailProvider(BdsmWailaHandler.INSTANCE, TileEntityBarrel.class);
         registrar.registerStackProvider(BdsmWailaHandler.INSTANCE, TileEntityBarrel.class);
     }
 }

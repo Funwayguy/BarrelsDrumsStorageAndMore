@@ -18,12 +18,15 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 
@@ -61,7 +64,14 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             return true;
         } else
         {
-            depositItem(barrel, playerIn, hand);
+            IFluidHandlerItem container = playerIn.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
+            if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
+            {
+                withdrawItem(barrel, playerIn);
+            } else
+            {
+                depositItem(barrel, playerIn, hand);
+            }
         }
         
         return true;
@@ -87,7 +97,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         FluidStack refFluid = barrel.getRefFluid();
         ItemStack held = player.getHeldItem(hand);
         IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-        int maxDrain = barrel.getStackCap() < 0 ? 1000 : (int)Math.min(1000, barrel.getStackCap() * 1000L - (refFluid == null ? 0 : barrel.getCount()));
+        int maxDrain = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid == null ? 0 : barrel.getCount()));
         
         if(container != null && refItem.isEmpty() && !held.isEmpty()) // Fill fluid
         {
@@ -95,21 +105,24 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             
             if(refFluid == null)
             {
-                drainStack = container.drain(maxDrain, false);
+                drainStack = container.drain(maxDrain / held.getCount(), false);
             } else
             {
                 drainStack = refFluid.copy();
-                drainStack.amount = maxDrain;
+                drainStack.amount = maxDrain / held.getCount();
                 drainStack = container.drain(drainStack, false);
             }
             
             if(drainStack != null && drainStack.amount > 0)
             {
+                drainStack.amount *= held.getCount();
                 drainStack.amount = barrel.fill(drainStack, true);
                 
-                if(drainStack.amount > 0)
+                if(!player.capabilities.isCreativeMode && drainStack.amount > 0)
                 {
+                    drainStack.amount /= held.getCount();
                     container.drain(drainStack, true);
+                    
                     player.setHeldItem(hand, container.getContainer());
                 }
                 
@@ -119,9 +132,31 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         
         if(BdsmConfig.multiPurposeBarrel)
         {
-            if(!held.isEmpty() && (refItem.isEmpty() || barrel.canMergeWith(held)))
+            if(!held.isEmpty() && (refItem.isEmpty() || barrel.canMergeWith(held) || held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null)))
             {
-                player.setHeldItem(hand, barrel.insertItem(barrel.getSlots() - 1, held, false));
+                if(held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null))
+                {
+                    IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
+                    assert heldCrate != null;
+                    
+                    for(int s = 0; s < heldCrate.getSlots(); s++)
+                    {
+                        ItemStack transfer = heldCrate.extractItem(s, Integer.MAX_VALUE, true);
+                    
+                        ItemStack transStack = transfer.copy();
+                        transStack.setCount(transStack.getCount() * held.getCount());
+                        int prev = transStack.getCount();
+                        
+                        if(prev > 0 && (refItem.isEmpty() || barrel.canMergeWith(transStack)))
+                        {
+                            transStack = barrel.insertItem(barrel.getSlots() - 1, transStack, false);
+                            if(transStack.getCount() != prev) heldCrate.extractItem(s, (prev - transStack.getCount()) / held.getCount(), false);
+                        }
+                    }
+                } else
+                {
+                    player.setHeldItem(hand, barrel.insertItem(barrel.getSlots() - 1, held, false));
+                }
             } else if(!refItem.isEmpty()) // Insert all
             {
                 for(int i = 0; i < player.inventory.getSizeInventory(); i++)
@@ -151,7 +186,8 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         FluidStack refFluid = barrel.getRefFluid();
         ItemStack held = player.getHeldItem(EnumHand.MAIN_HAND);
         IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-        int maxFill = barrel.getStackCap() < 0 ? 1000 : (int)Math.min(1000, barrel.getStackCap() * 1000L - (refFluid == null ? 0 : barrel.getCount()));
+        int maxFill = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid == null ? 0 : barrel.getCount()));
+        if(!player.isSneaking()) Math.min(1000, maxFill);
         
         if(container != null && refFluid != null && !held.isEmpty() && barrel.getCount() >= held.getCount())
         {
@@ -320,5 +356,30 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
         
         return changed;
+    }
+    
+    @Override
+    @Deprecated
+    public boolean hasComparatorInputOverride(IBlockState state)
+    {
+        return true;
+    }
+    
+    @Override
+    @Deprecated
+    public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
+    {
+        TileEntity tileBarrel = worldIn.getTileEntity(pos);
+        
+        if(tileBarrel instanceof TileEntityBarrel)
+        {
+            CapabilityBarrel tileCap = (CapabilityBarrel)tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
+            max *= tileCap.getRefFluid() != null ? 1000L : tileCap.getRefItem().getMaxStackSize();
+            double fill = tileCap.getCount() / (double)max;
+            return MathHelper.floor(fill * 14D) + (tileCap.getCount() > 0 ? 1 : 0);
+        }
+        
+        return 0;
     }
 }

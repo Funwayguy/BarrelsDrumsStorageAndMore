@@ -21,6 +21,7 @@ public class BdsmConfig
     private static final List<String> fluidBlacklist = new ArrayList<>();
     
     public static boolean multiPurposeBarrel = true;
+    public static final List<String> oreDictBlacklist = new ArrayList<>();
     
     @SubscribeEvent
     public static void onConfigReload(ConfigChangedEvent event)
@@ -77,6 +78,9 @@ public class BdsmConfig
         
         fluidBlacklist.clear();
         Collections.addAll(fluidBlacklist, config.getStringList("Fluid Blacklist", Configuration.CATEGORY_GENERAL, new String[]{} , "Blacklist these fluids from being stored in barrels"));
+        
+        oreDictBlacklist.clear();
+        Collections.addAll(oreDictBlacklist, config.getStringList("Ore Dict Blacklist", Configuration.CATEGORY_GENERAL, new String[]{}, "Blacklists ore dictionary conversions (REGEX)"));
         
         config.save();
     }
