@@ -24,6 +24,7 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     
     private boolean creativeBreak = false;
     
+    @SuppressWarnings("unused")
     public TileEntityCrate()
     {
         crateCap = new CapabilityCrate(64, 1024).setCallback(this);
@@ -57,7 +58,7 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     }
     
     @Override
-    public boolean hasCapability(Capability<?> capability, @Nullable EnumFacing facing)
+    public boolean hasCapability(@Nonnull Capability<?> capability, @Nullable EnumFacing facing)
     {
         if(capability == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY || capability == BdsmCapabilies.CRATE_CAP)
         {
@@ -85,22 +86,20 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     @Override
     public void onCrateChanged()
     {
-        if(world.isRemote)
-        {
-            return;
-        }
-        
+        if(world.isRemote) return;
         this.facing = this.world.getBlockState(pos).getValue(BlockDirectional.FACING);
         this.markDirty();
-        world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
+        if(world.getMinecraftServer() != null) world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
     }
     
+    @Nonnull
     @Override
     public NBTTagCompound getUpdateTag()
     {
         return this.writeToNBT(new NBTTagCompound());
     }
     
+    @Nonnull
     @Override
     public SPacketUpdateTileEntity getUpdatePacket()
     {
@@ -123,6 +122,7 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     	this.world.markBlockRangeForRenderUpdate(this.pos, this.pos);
     }
     
+    @Nonnull
     @Override
     public NBTTagCompound writeToNBT(NBTTagCompound nbt)
     {

@@ -19,6 +19,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
@@ -28,6 +29,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class BlockBarrelBase extends BlockDirectional implements ITileEntityProvider
@@ -35,6 +37,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     private final int initCap;
     private final int maxCap;
     
+    @SuppressWarnings("WeakerAccess")
     protected BlockBarrelBase(Material materialIn, int initCap, int maxCap)
     {
         super(materialIn);
@@ -187,7 +190,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         ItemStack held = player.getHeldItem(EnumHand.MAIN_HAND);
         IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
         int maxFill = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid == null ? 0 : barrel.getCount()));
-        if(!player.isSneaking()) Math.min(1000, maxFill);
+        if(!player.isSneaking()) maxFill = Math.min(1000, maxFill);
         
         if(container != null && refFluid != null && !held.isEmpty() && barrel.getCount() >= held.getCount())
         {
@@ -214,6 +217,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
     }
 	
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
     public EnumBlockRenderType getRenderType(IBlockState state)
@@ -221,6 +225,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         return EnumBlockRenderType.MODEL;
     }
     
+    @Nonnull
 	@Override
     @SideOnly(Side.CLIENT)
     public BlockRenderLayer getRenderLayer()
@@ -244,13 +249,14 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     
     @Nullable
     @Override
-    public TileEntity createNewTileEntity(World worldIn, int meta)
+    public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
     {
         return new TileEntityBarrel(initCap, maxCap);
     }
     
+    @Nonnull
     @Override
-    public IBlockState getStateForPlacement(World worldIn, BlockPos pos, EnumFacing facing, float hitX, float hitY, float hitZ, int meta, EntityLivingBase placer, EnumHand hand)
+    public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, @Nonnull EntityLivingBase placer, EnumHand hand)
     {
         return this.getDefaultState().withProperty(FACING, EnumFacing.getDirectionFromEntityLiving(pos, placer).getOpposite());
     }
@@ -261,6 +267,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         return (state.getValue(FACING)).getIndex();
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
     public IBlockState getStateFromMeta(int meta)
@@ -268,6 +275,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         return this.getDefaultState().withProperty(FACING, EnumFacing.byIndex(meta & 7));
     }
     
+    @Nonnull
     @Override
     protected BlockStateContainer createBlockState()
     {
@@ -276,7 +284,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     
     // =v= DROP MODIFICATIONS =v=
     
-    public void dropBlockAsItemWithChance(World worldIn, BlockPos pos, IBlockState state, float chance, int fortune)
+    public void dropBlockAsItemWithChance(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune)
     {
     }
     
@@ -290,7 +298,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
     }
     
-    public void breakBlock(World worldIn, BlockPos pos, IBlockState state)
+    public void breakBlock(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state)
     {
         TileEntity tileentity = worldIn.getTileEntity(pos);
 
@@ -300,6 +308,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             ItemStack stack = new ItemStack(Item.getItemFromBlock(this));
             IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
             IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            assert itemCap != null;
             itemCap.copyContainer(tileCap);
             
             spawnAsEntity(worldIn, pos, stack);
@@ -308,9 +317,10 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         super.breakBlock(worldIn, pos, state);
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public ItemStack getItem(World worldIn, BlockPos pos, IBlockState state)
+    public ItemStack getItem(World worldIn, BlockPos pos, @Nonnull IBlockState state)
     {
         ItemStack stack = super.getItem(worldIn, pos, state);
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
@@ -319,29 +329,31 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         {
             IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
             IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null);
-    
+            assert itemCap != null;
             itemCap.copyContainer(tileCap);
         }
         
         return stack;
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withRotation(IBlockState state, Rotation rot)
+    public IBlockState withRotation(@Nonnull IBlockState state, Rotation rot)
     {
         return state.withProperty(FACING, rot.rotate(state.getValue(FACING)));
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withMirror(IBlockState state, Mirror mirrorIn)
+    public IBlockState withMirror(@Nonnull IBlockState state, Mirror mirrorIn)
     {
         return state.withRotation(mirrorIn.toRotation(state.getValue(FACING)));
     }
     
     @Override
-    public boolean rotateBlock(World world, BlockPos pos, EnumFacing axis)
+    public boolean rotateBlock(World world, @Nonnull BlockPos pos, @Nonnull EnumFacing axis)
     {
         if(world.isRemote) return super.rotateBlock(world, pos, axis);
         
@@ -351,6 +363,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         
         if(changed && tile instanceof TileEntityBarrel && nTile instanceof TileEntityBarrel)
         {
+            //noinspection ConstantConditions
             nTile.getCapability(BdsmCapabilies.BARREL_CAP, null).copyContainer(tile.getCapability(BdsmCapabilies.BARREL_CAP, null));
             ((TileEntityBarrel)nTile).onCrateChanged();
         }
@@ -360,6 +373,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     
     @Override
     @Deprecated
+    @SuppressWarnings("deprecation")
     public boolean hasComparatorInputOverride(IBlockState state)
     {
         return true;
@@ -367,6 +381,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     
     @Override
     @Deprecated
+    @SuppressWarnings("deprecation")
     public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
     {
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
@@ -374,6 +389,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         if(tileBarrel instanceof TileEntityBarrel)
         {
             CapabilityBarrel tileCap = (CapabilityBarrel)tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            assert tileCap != null;
             long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
             max *= tileCap.getRefFluid() != null ? 1000L : tileCap.getRefItem().getMaxStackSize();
             double fill = tileCap.getCount() / (double)max;
@@ -381,5 +397,11 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
         
         return 0;
+    }
+    
+    @Override
+    public boolean canCreatureSpawn(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, net.minecraft.entity.EntityLiving.SpawnPlacementType type)
+    {
+        return true;
     }
 }

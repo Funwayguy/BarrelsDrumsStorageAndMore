@@ -226,7 +226,7 @@ public class CapabilityCrate implements ICrate
                     String name = OreDictionary.getOreName(id);
                     for(String bl : BdsmConfig.oreDictBlacklist)
                     {
-                        if(bl.matches(name)) continue topLoop;
+                        if(name.matches(bl)) continue topLoop;
                     }
                     cachedOres.add(new OreIngredient(name));
                 }
@@ -498,7 +498,7 @@ public class CapabilityCrate implements ICrate
                 String name = OreDictionary.getOreName(id);
                 for(String bl : BdsmConfig.oreDictBlacklist)
                 {
-                    if(bl.matches(name)) continue topLoop;
+                    if(name.matches(bl)) continue topLoop;
                 }
                 cachedOres.add(new OreIngredient(name));
             }

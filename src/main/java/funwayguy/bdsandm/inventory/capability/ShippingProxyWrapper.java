@@ -97,6 +97,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
+        if(pushed != 0 && !simulate) shipInvo.markDirty();
         return pushed;
     }
     
@@ -117,6 +118,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
+        if(pulled != 0 && !simulate) shipInvo.markDirty();
         return pulled;
     }
     

@@ -114,11 +114,7 @@ public class TileEntityShipping extends TileEntity implements IInventoryChangedL
             if(tile != null && tile.hasCapability(CapabilityEnergy.ENERGY, side.getOpposite()))
             {
                 IEnergyStorage target = tile.getCapability(CapabilityEnergy.ENERGY, side.getOpposite());
-                
-                if(target == null || !target.canReceive())
-                {
-                    continue;
-                }
+                if(target == null || !target.canReceive()) continue;
                 
                 sent += target.receiveEnergy(maxOffer - sent, false);
             }
@@ -161,7 +157,7 @@ public class TileEntityShipping extends TileEntity implements IInventoryChangedL
         return null;
     }
     
-    // GUI USE ONLY
+    @Nullable
     public InventoryShipping getContainerInvo()
     {
         TileEntityShipping proxyTile = getProxyTile();

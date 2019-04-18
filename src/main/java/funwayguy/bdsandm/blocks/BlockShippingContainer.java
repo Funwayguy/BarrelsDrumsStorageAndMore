@@ -3,6 +3,7 @@ package funwayguy.bdsandm.blocks;
 import funwayguy.bdsandm.blocks.tiles.TileEntityShipping;
 import funwayguy.bdsandm.client.color.IBdsmColorBlock;
 import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.inventory.InventoryShipping;
 import net.minecraft.block.Block;
 import net.minecraft.block.ITileEntityProvider;
 import net.minecraft.block.material.Material;
@@ -113,7 +114,8 @@ public class BlockShippingContainer extends Block implements ITileEntityProvider
         
         if(tile instanceof TileEntityShipping)
         {
-            InventoryHelper.dropInventoryItems(worldIn, pos, ((TileEntityShipping)tile).getContainerInvo());
+            InventoryShipping invo = ((TileEntityShipping)tile).getContainerInvo();
+            if(invo != null) InventoryHelper.dropInventoryItems(worldIn, pos, invo);
         }
         
         int myIdx = state.getValue(PROXY_IDX);
@@ -282,5 +284,11 @@ public class BlockShippingContainer extends Block implements ITileEntityProvider
     public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
     {
         return new TileEntityShipping(meta);
+    }
+    
+    @Override
+    public boolean canCreatureSpawn(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, net.minecraft.entity.EntityLiving.SpawnPlacementType type)
+    {
+        return true;
     }
 }
