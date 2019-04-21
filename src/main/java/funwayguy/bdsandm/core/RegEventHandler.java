@@ -33,6 +33,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.oredict.ShapedOreRecipe;
 import net.minecraftforge.oredict.ShapelessOreRecipe;
 
@@ -82,17 +83,17 @@ public class RegEventHandler
         addShapedRecipe("wood_crate", "bdsm", new ItemStack(BDSM.blockWoodCrate), "WWW", "WFW", "WWW", 'W', "plankWood", 'F', new ItemStack(Items.ITEM_FRAME));
         addShapedRecipe("wood_barrel", "bdsm", new ItemStack(BDSM.blockWoodBarrel), "WWW", "WBW", "WWW", 'W', "plankWood", 'B', new ItemStack(Items.BUCKET));
         
-        addShapedRecipe("metal_crate", "bdsm", new ItemStack(BDSM.blockMetalBarrel), "III", "ICI", "III", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodCrate));
-        addShapedRecipe("wood_barrel", "bdsm", new ItemStack(BDSM.blockMetalBarrel), "III", "IBI", "III", 'I', "ingotIron", 'B', new ItemStack(BDSM.blockWoodBarrel));
+        addShapedRecipe("metal_crate", "bdsm", new ItemStack(BDSM.blockMetalCrate), "III", "ICI", "III", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodCrate, 1, OreDictionary.WILDCARD_VALUE));
+        addShapedRecipe("metal_barrel", "bdsm", new ItemStack(BDSM.blockMetalBarrel), "III", "IBI", "III", 'I', "ingotIron", 'B', new ItemStack(BDSM.blockWoodBarrel, 1, OreDictionary.WILDCARD_VALUE));
         
-        addShapedRecipe("shipping_c", "bdsm", new ItemStack(BDSM.blockShippingContainer), "III", "BCB", "III", 'I', "blockIron", 'B', new ItemStack(Blocks.IRON_BARS), 'C', new ItemStack(BDSM.blockMetalCrate));
-        addShapedRecipe("shipping_b", "bdsm", new ItemStack(BDSM.blockShippingContainer), "III", "BCB", "III", 'I', "blockIron", 'B', new ItemStack(Blocks.IRON_BARS), 'C', new ItemStack(BDSM.blockMetalBarrel));
+        addShapedRecipe("shipping_c", "bdsm", new ItemStack(BDSM.blockShippingContainer), "III", "BCB", "III", 'I', "blockIron", 'B', new ItemStack(Blocks.IRON_BARS), 'C', new ItemStack(BDSM.blockMetalCrate, 1, OreDictionary.WILDCARD_VALUE));
+        addShapedRecipe("shipping_b", "bdsm", new ItemStack(BDSM.blockShippingContainer), "III", "BCB", "III", 'I', "blockIron", 'B', new ItemStack(Blocks.IRON_BARS), 'C', new ItemStack(BDSM.blockMetalBarrel, 1, OreDictionary.WILDCARD_VALUE));
         
-        addShapedRecipe("crate_key_c", "bdsm", new ItemStack(BDSM.itemKey), "II", "I ", "C ", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodCrate));
-        addShapedRecipe("crate_key_b", "bdsm", new ItemStack(BDSM.itemKey), "II", "I ", "C ", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodBarrel));
+        addShapedRecipe("crate_key_c", "bdsm", new ItemStack(BDSM.itemKey), "II", "I ", "C ", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodCrate, 1, OreDictionary.WILDCARD_VALUE));
+        addShapedRecipe("crate_key_b", "bdsm", new ItemStack(BDSM.itemKey), "II", "I ", "C ", 'I', "ingotIron", 'C', new ItemStack(BDSM.blockWoodBarrel, 1, OreDictionary.WILDCARD_VALUE));
         
-        addShapedRecipe("color_tool_c", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodCrate));
-        addShapedRecipe("color_tool_b", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodBarrel));
+        addShapedRecipe("color_tool_c", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodCrate, 1, OreDictionary.WILDCARD_VALUE));
+        addShapedRecipe("color_tool_b", "bdsm", new ItemStack(BDSM.itemColor), "DDD", "DCD", "DDD", 'D', "dye", 'C', new ItemStack(BDSM.blockWoodBarrel, 1, OreDictionary.WILDCARD_VALUE));
         
         addShapelessRecipe("upgrade_uninstall", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 7), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST));
         addShapelessRecipe("upgrade_ore_dict", "bdsm", new ItemStack(BDSM.itemUpgrade, 1, 5), new ItemStack(Items.ITEM_FRAME), new ItemStack(Blocks.CHEST), new ItemStack(Blocks.IRON_ORE));

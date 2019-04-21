@@ -32,6 +32,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     private final int initCap;
     private final int maxCap;
     
+    @SuppressWarnings("WeakerAccess")
     public BlockCrateBase(Material material, int initCap, int maxCap)
     {
         super(material);
@@ -45,24 +46,15 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     @Override
     public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
     {
-        if(worldIn.isRemote) return true;
+        if(worldIn.isRemote || playerIn.isSneaking()) return true;
         
         TileEntity tile = worldIn.getTileEntity(pos);
-        
-        if(tile == null || !tile.hasCapability(BdsmCapabilies.CRATE_CAP, null)) return true;
+        if(tile == null) return true;
         
         ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null);
+        if(crate == null || crate.installUpgrade(playerIn, playerIn.getHeldItem(hand))) return true;
         
-        if(crate == null)
-        {
-            return true;
-        } else if(!playerIn.isSneaking() && crate.installUpgrade(playerIn, playerIn.getHeldItem(hand)))
-        {
-            return true;
-        } else
-        {
-            depositItem(crate, playerIn, hand);
-        }
+        depositItem(crate, playerIn, hand);
         
         return true;
     }
@@ -70,15 +62,16 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     @Override
     public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
     {
-        if(worldIn.isRemote) return;
+        if(worldIn.isRemote || playerIn.isSneaking()) return;
         
         TileEntity tile = worldIn.getTileEntity(pos);
-        if(tile == null || !tile.hasCapability(BdsmCapabilies.CRATE_CAP, null)) return;
+        if(!(tile instanceof TileEntityCrate)) return;
+        TileEntityCrate tileCrate = (TileEntityCrate)tile;
         
         ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null);
         if(crate == null) return;
         
-        withdrawItem(crate, playerIn);
+        withdrawItem(crate, playerIn, tileCrate.getClickCount(worldIn.getTotalWorldTime()));
     }
     
     private void depositItem(ICrate crate, EntityPlayer player, EnumHand hand)
@@ -129,15 +122,21 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         }
     }
     
-    private void withdrawItem(ICrate crate, EntityPlayer player)
+    private void withdrawItem(ICrate crate, EntityPlayer player, int clickCount)
     {
         if(!crate.getRefItem().isEmpty())
         {
-            ItemStack out = crate.extractItem(0, !player.isSneaking() ? 64 : 1, false);
-            if(!player.addItemStackToInventory(out)) player.dropItem(out, true, false);
+            int count = clickCount <= 0 ? 1 : crate.getRefItem().getMaxStackSize();
+            if(clickCount == 1) count--;
+            ItemStack out = crate.extractItem(0, count, false);
+            if(player.getHeldItem(EnumHand.MAIN_HAND).isEmpty())
+            {
+                player.setHeldItem(EnumHand.MAIN_HAND, out);
+            } else if(!player.addItemStackToInventory(out)) player.dropItem(out, false, false);
         }
     }
 	
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
     public EnumBlockRenderType getRenderType(IBlockState state)
@@ -145,6 +144,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         return EnumBlockRenderType.MODEL;
     }
     
+    @Nonnull
 	@Override
     @SideOnly(Side.CLIENT)
     public BlockRenderLayer getRenderLayer()
@@ -168,13 +168,23 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     
     @Nullable
     @Override
-    public TileEntity createNewTileEntity(World worldIn, int meta)
+    public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
     {
         return new TileEntityCrate(initCap, maxCap);
     }
     
     @Override
-    public IBlockState getStateForPlacement(World worldIn, BlockPos pos, EnumFacing facing, float hitX, float hitY, float hitZ, int meta, EntityLivingBase placer, EnumHand hand)
+    public void onBlockPlacedBy(World worldIn, BlockPos pos, IBlockState state, EntityLivingBase placer, ItemStack stack)
+    {
+        super.onBlockPlacedBy(worldIn, pos, state, placer, stack);
+        if(worldIn.isRemote) return;
+        TileEntity tile = worldIn.getTileEntity(pos);
+        if(tile instanceof TileEntityCrate) ((TileEntityCrate)tile).onCrateChanged();
+    }
+    
+    @Nonnull
+    @Override
+    public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, @Nonnull EntityLivingBase placer, @Nonnull EnumHand hand)
     {
         return this.getDefaultState().withProperty(FACING, EnumFacing.getDirectionFromEntityLiving(pos, placer).getOpposite());
     }
@@ -185,6 +195,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         return (state.getValue(FACING)).getIndex();
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
     public IBlockState getStateFromMeta(int meta)
@@ -192,6 +203,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         return this.getDefaultState().withProperty(FACING, EnumFacing.byIndex(meta & 7));
     }
     
+    @Nonnull
     @Override
     protected BlockStateContainer createBlockState()
     {
@@ -200,7 +212,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     
     // =v= DROP MODIFICATIONS =v=
     
-    public void dropBlockAsItemWithChance(World worldIn, BlockPos pos, IBlockState state, float chance, int fortune)
+    public void dropBlockAsItemWithChance(World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune)
     {
     }
     
@@ -214,7 +226,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         }
     }
     
-    public void breakBlock(World worldIn, BlockPos pos, IBlockState state)
+    public void breakBlock(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state)
     {
         TileEntity tileentity = worldIn.getTileEntity(pos);
 
@@ -224,6 +236,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
             ItemStack stack = new ItemStack(Item.getItemFromBlock(this));
             ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
             ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            assert itemCap != null;
             itemCap.copyContainer(tileCap);
             
             spawnAsEntity(worldIn, pos, stack);
@@ -232,9 +245,10 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         super.breakBlock(worldIn, pos, state);
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public ItemStack getItem(World worldIn, BlockPos pos, IBlockState state)
+    public ItemStack getItem(World worldIn, BlockPos pos, @Nonnull IBlockState state)
     {
         ItemStack stack = super.getItem(worldIn, pos, state);
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
@@ -243,29 +257,31 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         {
             ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
             ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null);
-    
+            assert itemCap != null;
             itemCap.copyContainer(tileCap);
         }
         
         return stack;
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withRotation(IBlockState state, Rotation rot)
+    public IBlockState withRotation(@Nonnull IBlockState state, Rotation rot)
     {
         return state.withProperty(FACING, rot.rotate(state.getValue(FACING)));
     }
     
+    @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withMirror(IBlockState state, Mirror mirrorIn)
+    public IBlockState withMirror(@Nonnull IBlockState state, Mirror mirrorIn)
     {
         return state.withRotation(mirrorIn.toRotation(state.getValue(FACING)));
     }
     
     @Override
-    public boolean rotateBlock(World world, BlockPos pos, EnumFacing axis)
+    public boolean rotateBlock(World world, @Nonnull BlockPos pos, @Nonnull EnumFacing axis)
     {
         if(world.isRemote) return super.rotateBlock(world, pos, axis);
         
@@ -275,6 +291,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         
         if(changed && tile instanceof TileEntityCrate && nTile instanceof TileEntityCrate)
         {
+            //noinspection ConstantConditions
             nTile.getCapability(BdsmCapabilies.CRATE_CAP, null).copyContainer(tile.getCapability(BdsmCapabilies.CRATE_CAP, null));
             ((TileEntityCrate)nTile).onCrateChanged();
         }
@@ -284,6 +301,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     
     @Override
     @Deprecated
+    @SuppressWarnings("deprecation")
     public boolean hasComparatorInputOverride(IBlockState state)
     {
         return true;
@@ -291,6 +309,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     
     @Override
     @Deprecated
+    @SuppressWarnings("deprecation")
     public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
     {
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
@@ -298,6 +317,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
         if(tileBarrel instanceof TileEntityCrate)
         {
             ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            assert tileCap != null;
             long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
             max *= tileCap.getRefItem().getMaxStackSize();
             double fill = tileCap.getCount() / (double)max;

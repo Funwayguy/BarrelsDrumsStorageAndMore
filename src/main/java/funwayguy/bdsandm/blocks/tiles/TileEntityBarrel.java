@@ -3,7 +3,6 @@ package funwayguy.bdsandm.blocks.tiles;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.CapabilityBarrel;
 import funwayguy.bdsandm.inventory.capability.ICrateCallback;
-import net.minecraft.block.BlockDirectional;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
@@ -18,11 +17,9 @@ import net.minecraftforge.items.CapabilityItemHandler;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-//@Interface(iface = "mcp.mobius.waila.api.IWailaDataProvider", modid = "waila")
 public class TileEntityBarrel extends TileEntity implements ICrateCallback
 {
     private final CapabilityBarrel barrelCap;
-    private EnumFacing facing = EnumFacing.SOUTH;
     
     private boolean creativeBreak = false;
     
@@ -35,11 +32,6 @@ public class TileEntityBarrel extends TileEntity implements ICrateCallback
     public TileEntityBarrel(int initCap, int maxCap)
     {
         barrelCap = new CapabilityBarrel(initCap, maxCap).setCallback(this);
-    }
-    
-    public EnumFacing getFacing()
-    {
-        return this.facing;
     }
     
     public void setCreativeBroken(boolean state)
@@ -99,7 +91,6 @@ public class TileEntityBarrel extends TileEntity implements ICrateCallback
             return;
         }
         
-        this.facing = this.world.getBlockState(pos).getValue(BlockDirectional.FACING);
         this.markDirty();
         if(world.getMinecraftServer() != null) world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
     }
@@ -124,7 +115,6 @@ public class TileEntityBarrel extends TileEntity implements ICrateCallback
         super.readFromNBT(nbt);
         
         barrelCap.deserializeNBT(nbt.getCompoundTag("barrelCap"));
-        this.facing = EnumFacing.byIndex(nbt.getInteger("facing"));
     }
     
     @Override
@@ -139,8 +129,24 @@ public class TileEntityBarrel extends TileEntity implements ICrateCallback
     public NBTTagCompound writeToNBT(NBTTagCompound nbt)
     {
         nbt.setTag("barrelCap", barrelCap.serializeNBT());
-        nbt.setInteger("facing", facing.getIndex());
         
         return super.writeToNBT(nbt);
+    }
+    
+    private long lastClick = 0L;
+    private int clickCount = 0;
+    
+    public int getClickCount(long worldTime)
+    {
+        if(worldTime - lastClick > 5)
+        {
+            lastClick = worldTime;
+            clickCount = 0;
+            return 0;
+        } else
+        {
+            lastClick = worldTime;
+            return ++clickCount;
+        }
     }
 }

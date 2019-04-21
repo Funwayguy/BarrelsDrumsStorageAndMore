@@ -51,30 +51,21 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     @Override
     public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
     {
-        if(worldIn.isRemote) return true;
+        if(worldIn.isRemote || playerIn.isSneaking()) return true;
         
         TileEntity tile = worldIn.getTileEntity(pos);
-        
-        if(tile == null || !tile.hasCapability(BdsmCapabilies.BARREL_CAP, null)) return true;
+        if(tile == null) return true;
         
         CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null);
+        if(barrel == null || barrel.installUpgrade(playerIn, playerIn.getHeldItem(hand))) return true;
         
-        if(barrel == null)
+        IFluidHandlerItem container = playerIn.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
+        if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
         {
-            return false;
-        } else if(!playerIn.isSneaking() && barrel.installUpgrade(playerIn, playerIn.getHeldItem(hand)))
-        {
-            return true;
+            withdrawItem(barrel, playerIn, 0);
         } else
         {
-            IFluidHandlerItem container = playerIn.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-            if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
-            {
-                withdrawItem(barrel, playerIn);
-            } else
-            {
-                depositItem(barrel, playerIn, hand);
-            }
+            depositItem(barrel, playerIn, hand);
         }
         
         return true;
@@ -83,15 +74,16 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     @Override
     public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
     {
-        if(worldIn.isRemote) return;
+        if(worldIn.isRemote || playerIn.isSneaking()) return;
         
         TileEntity tile = worldIn.getTileEntity(pos);
-        if(tile == null || !tile.hasCapability(BdsmCapabilies.CRATE_CAP, null)) return;
+        if(!(tile instanceof TileEntityBarrel)) return;
+        TileEntityBarrel tileBarrel = (TileEntityBarrel)tile;
         
         CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null);
         if(barrel == null) return;
         
-        withdrawItem(barrel, playerIn);
+        withdrawItem(barrel, playerIn, tileBarrel.getClickCount(worldIn.getTotalWorldTime()));
     }
     
     private void depositItem(CapabilityBarrel barrel, EntityPlayer player, EnumHand hand)
@@ -183,14 +175,14 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
     }
     
-    private void withdrawItem(CapabilityBarrel barrel, EntityPlayer player)
+    private void withdrawItem(CapabilityBarrel barrel, EntityPlayer player, int clickCount)
     {
         ItemStack ref = barrel.getRefItem();
         FluidStack refFluid = barrel.getRefFluid();
         ItemStack held = player.getHeldItem(EnumHand.MAIN_HAND);
         IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-        int maxFill = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid == null ? 0 : barrel.getCount()));
-        if(!player.isSneaking()) maxFill = Math.min(1000, maxFill);
+        int maxFill = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : barrel.getCount();
+        if(clickCount <= 0) maxFill = Math.min(1000, maxFill);
         
         if(container != null && refFluid != null && !held.isEmpty() && barrel.getCount() >= held.getCount())
         {
@@ -212,8 +204,13 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             }
         } else if(!ref.isEmpty())
         {
-            ItemStack out = barrel.extractItem(0, !player.isSneaking() ? 64 : 1, false);
-            if(!player.addItemStackToInventory(out)) player.dropItem(out, true, false);
+            int count = clickCount <= 0 ? 1 : ref.getMaxStackSize();
+            if(clickCount == 1) count--;
+            ItemStack out = barrel.extractItem(0, count, false);
+            if(player.getHeldItem(EnumHand.MAIN_HAND).isEmpty())
+            {
+                player.setHeldItem(EnumHand.MAIN_HAND, out);
+            } else if(!player.addItemStackToInventory(out)) player.dropItem(out, false, false);
         }
     }
 	
@@ -284,6 +281,7 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     
     // =v= DROP MODIFICATIONS =v=
     
+    @Override
     public void dropBlockAsItemWithChance(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune)
     {
     }
@@ -350,25 +348,6 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     public IBlockState withMirror(@Nonnull IBlockState state, Mirror mirrorIn)
     {
         return state.withRotation(mirrorIn.toRotation(state.getValue(FACING)));
-    }
-    
-    @Override
-    public boolean rotateBlock(World world, @Nonnull BlockPos pos, @Nonnull EnumFacing axis)
-    {
-        if(world.isRemote) return super.rotateBlock(world, pos, axis);
-        
-        TileEntity tile = world.getTileEntity(pos);
-        boolean changed = super.rotateBlock(world, pos, axis);
-        TileEntity nTile = world.getTileEntity(pos);
-        
-        if(changed && tile instanceof TileEntityBarrel && nTile instanceof TileEntityBarrel)
-        {
-            //noinspection ConstantConditions
-            nTile.getCapability(BdsmCapabilies.BARREL_CAP, null).copyContainer(tile.getCapability(BdsmCapabilies.BARREL_CAP, null));
-            ((TileEntityBarrel)nTile).onCrateChanged();
-        }
-        
-        return changed;
     }
     
     @Override

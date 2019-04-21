@@ -41,7 +41,7 @@ public class TileEntityRenderCrate extends TileEntitySpecialRenderer<TileEntityC
                 GlStateManager.pushMatrix();
                 
                 GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-                rotateSide(te.getFacing());
+                rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
                 GlStateManager.translate(0D, 0.3D, 0.5D);
                 GlStateManager.scale(0.01F, 0.01F, 1F);
                 GlStateManager.rotate(180F, 1F, 0F, 0F);
@@ -73,7 +73,7 @@ public class TileEntityRenderCrate extends TileEntitySpecialRenderer<TileEntityC
             GlStateManager.pushMatrix();
             
             GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-            rotateSide(te.getFacing());
+            rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
             GlStateManager.translate(shift ? 0.075D : 0D, 0.35D, 0.5D);
             GlStateManager.scale(0.01F, 0.01F, 1F);
             GlStateManager.rotate(180F, 1F, 0F, 0F);
@@ -100,7 +100,7 @@ public class TileEntityRenderCrate extends TileEntitySpecialRenderer<TileEntityC
             
             GlStateManager.pushMatrix();
             GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-            rotateSide(te.getFacing());
+            rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
             GlStateManager.translate(shift ? 0.075D : 0D, -0.075D, 0.5D);
             GlStateManager.scale(0.475F, 0.475F, 0.01F);
             
@@ -112,7 +112,7 @@ public class TileEntityRenderCrate extends TileEntitySpecialRenderer<TileEntityC
         GlStateManager.pushMatrix();
         
         GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-        rotateSide(te.getFacing());
+        rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
         GlStateManager.translate(0D, 0D, 0.5D);
         GlStateManager.scale(0.01F, 0.01F, 1F);
         GlStateManager.rotate(180F, 1F, 0F, 0F);

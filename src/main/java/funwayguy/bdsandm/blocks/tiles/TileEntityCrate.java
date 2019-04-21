@@ -3,7 +3,6 @@ package funwayguy.bdsandm.blocks.tiles;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.CapabilityCrate;
 import funwayguy.bdsandm.inventory.capability.ICrateCallback;
-import net.minecraft.block.BlockDirectional;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
@@ -20,7 +19,6 @@ import javax.annotation.Nullable;
 public class TileEntityCrate extends TileEntity implements ICrateCallback
 {
     private final CapabilityCrate crateCap;
-    private EnumFacing facing = EnumFacing.SOUTH;
     
     private boolean creativeBreak = false;
     
@@ -33,11 +31,6 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     public TileEntityCrate(int initCap, int maxCap)
     {
         crateCap = new CapabilityCrate(initCap, maxCap).setCallback(this);
-    }
-    
-    public EnumFacing getFacing()
-    {
-        return this.facing;
     }
     
     public void setCreativeBroken(boolean state)
@@ -87,7 +80,6 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     public void onCrateChanged()
     {
         if(world.isRemote) return;
-        this.facing = this.world.getBlockState(pos).getValue(BlockDirectional.FACING);
         this.markDirty();
         if(world.getMinecraftServer() != null) world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
     }
@@ -112,7 +104,6 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
         super.readFromNBT(nbt);
         
         crateCap.deserializeNBT(nbt.getCompoundTag("crateCap"));
-        this.facing = EnumFacing.byIndex(nbt.getInteger("facing"));
     }
     
     @Override
@@ -127,8 +118,24 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     public NBTTagCompound writeToNBT(NBTTagCompound nbt)
     {
         nbt.setTag("crateCap", crateCap.serializeNBT());
-        nbt.setInteger("facing", facing.getIndex());
         
         return super.writeToNBT(nbt);
+    }
+    
+    private long lastClick = 0L;
+    private int clickCount = 0;
+    
+    public int getClickCount(long worldTime)
+    {
+        if(worldTime - lastClick > 5)
+        {
+            lastClick = worldTime;
+            clickCount = 0;
+            return 0;
+        } else
+        {
+            lastClick = worldTime;
+            return ++clickCount;
+        }
     }
 }
