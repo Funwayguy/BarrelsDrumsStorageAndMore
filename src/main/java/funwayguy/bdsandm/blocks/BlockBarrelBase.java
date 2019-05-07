@@ -6,6 +6,7 @@ import funwayguy.bdsandm.core.BdsmConfig;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.CapabilityBarrel;
 import funwayguy.bdsandm.inventory.capability.IBarrel;
+import funwayguy.bdsandm.network.PacketBdsm;
 import net.minecraft.block.BlockDirectional;
 import net.minecraft.block.ITileEntityProvider;
 import net.minecraft.block.material.Material;
@@ -13,8 +14,10 @@ import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
@@ -32,7 +35,7 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlockBarrelBase extends BlockDirectional implements ITileEntityProvider
+public class BlockBarrelBase extends BlockDirectional implements ITileEntityProvider, IStorageBlock
 {
     private final int initCap;
     private final int maxCap;
@@ -49,24 +52,55 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     }
     
     @Override
-    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    public void onPlayerInteract(World world, BlockPos pos, IBlockState state, EnumFacing side, EntityPlayerMP player, EnumHand hand, boolean isHit, boolean altMode, int clickDelay)
     {
-        if(worldIn.isRemote || playerIn.isSneaking()) return true;
+        EnumFacing curFace = state.getValue(FACING);
+        if(curFace != side.getOpposite()) return;
         
-        TileEntity tile = worldIn.getTileEntity(pos);
-        if(tile == null) return true;
+        TileEntity tile = world.getTileEntity(pos);
+        if(!(tile instanceof TileEntityBarrel)) return;
+        TileEntityBarrel tileBarrel = (TileEntityBarrel)tile;
         
         CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null);
-        if(barrel == null || barrel.installUpgrade(playerIn, playerIn.getHeldItem(hand))) return true;
+        if(barrel == null || (!isHit && barrel.installUpgrade(player, player.getHeldItem(hand)))) return;
         
-        IFluidHandlerItem container = playerIn.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-        if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
+        if(!isHit)
         {
-            withdrawItem(barrel, playerIn, 0);
+            if(!player.isSneaking())
+            {
+                 IFluidHandlerItem container = player.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
+                if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
+                {
+                    withdrawItem(barrel, player, 0);
+                } else
+                {
+                    depositItem(barrel, player, hand);
+                }
+            }
         } else
         {
-            depositItem(barrel, playerIn, hand);
+            if(altMode)
+            {
+                withdrawItem(barrel, player, player.isSneaking() ? 0 : 2);
+            } else if(!player.isSneaking())
+            {
+                int curClick = tileBarrel.getClickCount(world.getTotalWorldTime(), clickDelay);
+                if(curClick >= 0) withdrawItem(barrel, player, curClick);
+            }
         }
+    }
+    
+    @Override
+    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    {
+        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return true;
+    
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("msgType", 2);
+        tag.setLong("pos", pos.toLong());
+        tag.setBoolean("isHit", false);
+        tag.setBoolean("offHand", hand == EnumHand.OFF_HAND);
+        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
         
         return true;
     }
@@ -74,16 +108,14 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     @Override
     public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
     {
-        if(worldIn.isRemote || playerIn.isSneaking()) return;
-        
-        TileEntity tile = worldIn.getTileEntity(pos);
-        if(!(tile instanceof TileEntityBarrel)) return;
-        TileEntityBarrel tileBarrel = (TileEntityBarrel)tile;
-        
-        CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null);
-        if(barrel == null) return;
-        
-        withdrawItem(barrel, playerIn, tileBarrel.getClickCount(worldIn.getTotalWorldTime()));
+        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return;
+    
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("msgType", 2);
+        tag.setLong("pos", pos.toLong());
+        tag.setBoolean("isHit", true);
+        tag.setBoolean("offHand", false);
+        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
     }
     
     private void depositItem(CapabilityBarrel barrel, EntityPlayer player, EnumHand hand)

@@ -36,8 +36,19 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
         this.shipInvo.addInventoryChangeListener(tileShip);
     }
     
+    private boolean skipRefresh = false;
+    
+    private void markDirty()
+    {
+        skipRefresh = true;
+        shipInvo.markDirty();
+        skipRefresh = false;
+    }
+    
     private void refreshProxyEntries()
     {
+        if(skipRefresh) return;
+        
         invoItems.clear();
         fluidItems.clear();
         energyItems.clear();
@@ -97,7 +108,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
-        if(pushed != 0 && !simulate) shipInvo.markDirty();
+        if(pushed != 0 && !simulate) this.markDirty();
         return pushed;
     }
     
@@ -118,7 +129,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
-        if(pulled != 0 && !simulate) shipInvo.markDirty();
+        if(pulled != 0 && !simulate) this.markDirty();
         return pulled;
     }
     
@@ -209,7 +220,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
-        shipInvo.markDirty();
+        this.markDirty();
         
         return resource.amount - remaining.amount;
     }
@@ -250,7 +261,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
-        shipInvo.markDirty();
+        this.markDirty();
         
         return pulled;
     }
@@ -291,7 +302,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             }
         }
         
-        shipInvo.markDirty();
+        this.markDirty();
         
         return pulled;
     }
@@ -339,7 +350,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             if(slot >= index && slot < index + eStore.handler.getSlots())
             {
                 ItemStack result = eStore.handler.insertItem(slot - index, stack, simulate);
-                if(!simulate) this.shipInvo.markDirty();
+                if(!simulate) this.markDirty();
                 return result;
             }
             
@@ -360,7 +371,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
             if(slot >= index && slot < index + eStore.handler.getSlots())
             {
                 ItemStack result = eStore.handler.extractItem(slot - index, amount, simulate);
-                if(!simulate) this.shipInvo.markDirty();
+                if(!simulate) this.markDirty();
                 return result;
             }
             

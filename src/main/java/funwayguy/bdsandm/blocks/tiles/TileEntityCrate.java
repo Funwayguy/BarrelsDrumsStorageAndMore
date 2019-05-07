@@ -125,9 +125,12 @@ public class TileEntityCrate extends TileEntity implements ICrateCallback
     private long lastClick = 0L;
     private int clickCount = 0;
     
-    public int getClickCount(long worldTime)
+    public int getClickCount(long worldTime, int delay)
     {
-        if(worldTime - lastClick > 5)
+        if(worldTime - lastClick <= 1)
+        {
+            return -1;
+        } else if(worldTime - lastClick > delay)
         {
             lastClick = worldTime;
             clickCount = 0;

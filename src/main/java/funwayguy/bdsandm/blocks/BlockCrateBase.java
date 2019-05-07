@@ -4,6 +4,7 @@ import funwayguy.bdsandm.blocks.tiles.TileEntityCrate;
 import funwayguy.bdsandm.core.BDSM;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.ICrate;
+import funwayguy.bdsandm.network.PacketBdsm;
 import net.minecraft.block.BlockDirectional;
 import net.minecraft.block.ITileEntityProvider;
 import net.minecraft.block.material.Material;
@@ -11,8 +12,10 @@ import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
@@ -27,7 +30,7 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlockCrateBase extends BlockDirectional implements ITileEntityProvider
+public class BlockCrateBase extends BlockDirectional implements ITileEntityProvider, IStorageBlock
 {
     private final int initCap;
     private final int maxCap;
@@ -44,17 +47,45 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     }
     
     @Override
-    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    public void onPlayerInteract(World world, BlockPos pos, IBlockState state, EnumFacing side, EntityPlayerMP player, EnumHand hand, boolean isHit, boolean altMode, int clickDelay)
     {
-        if(worldIn.isRemote || playerIn.isSneaking()) return true;
+        EnumFacing curFace = state.getValue(FACING);
+        if(curFace != side.getOpposite()) return;
         
-        TileEntity tile = worldIn.getTileEntity(pos);
-        if(tile == null) return true;
+        TileEntity tile = world.getTileEntity(pos);
+        if(!(tile instanceof TileEntityCrate)) return;
+        TileEntityCrate tileCrate = (TileEntityCrate)tile;
         
         ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null);
-        if(crate == null || crate.installUpgrade(playerIn, playerIn.getHeldItem(hand))) return true;
+        if(crate == null || (!isHit && crate.installUpgrade(player, player.getHeldItem(hand)))) return;
         
-        depositItem(crate, playerIn, hand);
+        if(!isHit)
+        {
+            if(!player.isSneaking()) depositItem(crate, player, hand);
+        } else
+        {
+            if(altMode)
+            {
+                withdrawItem(crate, player, player.isSneaking() ? 0 : 2);
+            } else if(!player.isSneaking())
+            {
+                int curClick = tileCrate.getClickCount(world.getTotalWorldTime(), clickDelay);
+                if(curClick >= 0) withdrawItem(crate, player, curClick);
+            }
+        }
+    }
+    
+    @Override
+    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    {
+        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return true;
+    
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("msgType", 2);
+        tag.setLong("pos", pos.toLong());
+        tag.setBoolean("isHit", false);
+        tag.setBoolean("offHand", hand == EnumHand.OFF_HAND);
+        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
         
         return true;
     }
@@ -62,16 +93,14 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
     @Override
     public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
     {
-        if(worldIn.isRemote || playerIn.isSneaking()) return;
-        
-        TileEntity tile = worldIn.getTileEntity(pos);
-        if(!(tile instanceof TileEntityCrate)) return;
-        TileEntityCrate tileCrate = (TileEntityCrate)tile;
-        
-        ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null);
-        if(crate == null) return;
-        
-        withdrawItem(crate, playerIn, tileCrate.getClickCount(worldIn.getTotalWorldTime()));
+        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return;
+    
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("msgType", 2);
+        tag.setLong("pos", pos.toLong());
+        tag.setBoolean("isHit", true);
+        tag.setBoolean("offHand", false);
+        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
     }
     
     private void depositItem(ICrate crate, EntityPlayer player, EnumHand hand)

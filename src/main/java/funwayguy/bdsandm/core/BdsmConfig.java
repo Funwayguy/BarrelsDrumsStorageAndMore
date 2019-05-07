@@ -22,14 +22,16 @@ public class BdsmConfig
     
     public static boolean multiPurposeBarrel = true;
     public static final List<String> oreDictBlacklist = new ArrayList<>();
+    public static boolean altControls = false;
+    public static int dClickDelay = 5;
     
     @SubscribeEvent
     public static void onConfigReload(ConfigChangedEvent event)
     {
         if(event.getModID().equals(BDSM.MOD_ID))
         {
-            load();
             config.save();
+            load();
         }
     }
     
@@ -53,6 +55,9 @@ public class BdsmConfig
         }
         
         config.load();
+        
+        altControls = config.getBoolean("Alternate Controls", Configuration.CATEGORY_CLIENT, false, "Use the old sneak method to extract items (may interfere with block harvesting)");
+        dClickDelay = config.getInt("Double Click Delay", Configuration.CATEGORY_CLIENT, 5, 1, 20, "Maximum time in ticks between mouse clicks to be counted as a double click");
         
         multiPurposeBarrel = config.getBoolean("Multi-Purpose Barrels", Configuration.CATEGORY_GENERAL, true, "Allows items to be placed in barrels. Disable to only permit fluids");
         
