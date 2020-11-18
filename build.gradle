@@ -38,10 +38,17 @@ repositories {
     maven {
         url 'http://tehnut.info/maven'
     }
+	maven { url = "https://dvs1.progwml6.com/files/maven/"  }
+	maven { url = "https://modmaven.k-4u.nl/"  }
+	maven { url = "https://maven.theillusivec4.top/"    }
+	maven { url = "http://maven.mcmoddev.com/"    }
+	maven { url = "https://maven.blamejared.com/" }
+    maven { url = "http://minecraft.curseforge.com/api/maven/"  }
 }
 
 dependencies {
-    deobfCompile "mcp.mobius.waila:Hwyla:${project.hwylaVersion}"
+   deobfCompile "mcp.mobius.waila:Hwyla:${project.hwylaVersion}"
+   deobfCompile "mezz.jei:jei_${mc_version}:${jei_version}"
 }
 
 processResources {
