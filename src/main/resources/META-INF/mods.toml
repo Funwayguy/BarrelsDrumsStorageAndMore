@@ -1,0 +1,21 @@
+modLoader="javafml"
+loaderVersion="[35,)"
+issueTrackerURL="https://github.com/Funwayguy/BarrelsDrumsStorageAndMore/issues"
+license="MIT"
+
+[[mods]]
+modId="bdsandm"
+version="${file.jarVersion}"
+displayName="Barrels, Drums, Storage & More"
+displayURL="https://www.curseforge.com/minecraft/mc-mods/barrels-drums-storage-more"
+logoFile="title.png"
+authors="FunWayGuy, Darkosto"
+description='''
+Upgradeable storage options from early game to industrial sized factories
+'''
+[[dependencies.bdsandm]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.16.5,1.17)"
+ordering="NONE"
+side="BOTH"

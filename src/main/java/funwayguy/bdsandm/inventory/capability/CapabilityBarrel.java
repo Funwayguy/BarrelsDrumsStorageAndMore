@@ -1,29 +1,36 @@
 package funwayguy.bdsandm.inventory.capability;
 
-import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.core.BDSMRegistry;
+import funwayguy.bdsandm.core.BDSMTags;
 import funwayguy.bdsandm.core.BdsmConfig;
-import net.minecraft.entity.player.EntityPlayer;
+import funwayguy.bdsandm.items.UpgradeItem;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.tags.ITag;
+import net.minecraft.tags.ITagCollectionSupplier;
+import net.minecraft.tags.Tag;
+import net.minecraft.tags.TagCollectionManager;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.oredict.OreDictionary;
-import net.minecraftforge.oredict.OreIngredient;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 public class CapabilityBarrel implements ICrate, IBarrel
 {
-    private FluidStack refFluid = null;
+    private FluidStack refFluid = FluidStack.EMPTY;
     private ItemStack refStack = ItemStack.EMPTY;
-    private final List<OreIngredient> cachedOres = new ArrayList<>();
+    private final List<ITag<Item>> cachedTags = new ArrayList<>();
     private int maxStackCapacity;
     private boolean oreDict = false;
     private boolean lock = false;
@@ -37,14 +44,14 @@ public class CapabilityBarrel implements ICrate, IBarrel
     
     private ICrateCallback callback;
     
-    private final IFluidTankProperties[] tankProps;
+    private final FluidTank[] tankProps;
     
     public CapabilityBarrel(int initCap, int maxStackCap)
     {
         this.stackCapacity = initCap;
         this.maxStackCapacity = maxStackCap;
         
-        this.tankProps = new IFluidTankProperties[]{fluidTank};
+        this.tankProps = new FluidTank[]{fluidTank};
     }
     
     @Override
@@ -103,16 +110,16 @@ public class CapabilityBarrel implements ICrate, IBarrel
     @Override
     public boolean canMergeWith(ItemStack stack)
     {
-        if(refFluid == null && ItemStack.areItemStackTagsEqual(refStack, stack))
+        if(refFluid.isEmpty() && ItemStack.areItemStackTagsEqual(refStack, stack))
         {
             if(ItemStack.areItemsEqual(refStack, stack))
             {
                 return true;
             } else if(oreDict)
             {
-                for(OreIngredient ing : cachedOres)
+                for(ITag<Item> ing : cachedTags)
                 {
-                    if(ing.apply(stack))
+                    if(stack.getItem().isIn(ing))
                     {
                         return true;
                     }
@@ -217,43 +224,64 @@ public class CapabilityBarrel implements ICrate, IBarrel
         this.deserializeNBT(container.serializeNBT());
     }
     
+//    @Override
+//    public IFluidTankProperties[] getTankProperties()
+//    {
+//        return tankProps;
+//    }
+
     @Override
-    public IFluidTankProperties[] getTankProperties()
-    {
-        return tankProps;
+    public int getTanks() {
+        return tankProps.length;
     }
-    
+
+    @Nonnull
     @Override
-    public int fill(FluidStack resource, boolean doFill)
+    public FluidStack getFluidInTank(int tank) {
+        return tankProps[tank].getFluid();
+    }
+
+    @Override
+    public int getTankCapacity(int tank) {
+        return tankProps[tank].getCapacity();
+    }
+
+    @Override
+    public boolean isFluidValid(int tank, @Nonnull FluidStack stack) {
+        return false;
+    }
+
+    @Override
+    public int fill(FluidStack resource, FluidAction doFill)
     {
-        if(!fluidTank.canFillFluidType(resource) || (refFluid == null && lock))
+        if(!fluidTank.isFluidValid(resource) || (refFluid.isEmpty() && lock))
         {
             return 0;
         } else if(stackCapacity < 0)
         {
-            if(doFill)
+            if(doFill.execute())
             {
-                if(refFluid == null)
+                if(refFluid.isEmpty())
                 {
                     refFluid = resource.copy();
-                    refFluid.amount = 1;
+                    refFluid.setAmount(1);
                 }
     
                 count = 1000;
             }
             
-            return resource.amount;
+            return resource.getAmount();
         }
         
         long capacity = stackCapacity * 1000L - count;
-        int fill = (int)Math.min(resource.amount, capacity);
+        int fill = (int)Math.min(resource.getAmount(), capacity);
         
-        if(doFill)
+        if(doFill.execute())
         {
-            if(refFluid == null)
+            if(refFluid.isEmpty())
             {
                 refFluid = resource.copy();
-                refFluid.amount = 1;
+                refFluid.setAmount(1);
             }
             
             count += fill;
@@ -261,33 +289,33 @@ public class CapabilityBarrel implements ICrate, IBarrel
             syncContainer();
         }
         
-        return overflow ? resource.amount : fill;
+        return overflow ? resource.getAmount() : fill;
     }
     
     @Nullable
     @Override
-    public FluidStack drain(FluidStack resource, boolean doDrain)
+    public FluidStack drain(FluidStack resource, FluidAction doDrain)
     {
-        if(!fluidTank.canDrainFluidType(resource))
+        if(!refFluid.isFluidEqual(resource))
         {
             return null;
         } else if(stackCapacity < 0)
         {
             FluidStack out = refFluid.copy();
-            out.amount = resource.amount;
+            out.setAmount(resource.getAmount());
             return out;
         }
         
         FluidStack out = refFluid.copy();
-        out.amount = Math.min(resource.amount, count);
-        
-        if(doDrain)
+        out.setAmount(Math.min(resource.getAmount(), count));
+
+        if(doDrain.execute())
         {
-            count -= out.amount;
+            count -= out.getAmount();
             
             if(count <= 0 && !lock)
             {
-                refFluid = null;
+                refFluid = FluidStack.EMPTY;
             }
             
             syncContainer();
@@ -298,15 +326,15 @@ public class CapabilityBarrel implements ICrate, IBarrel
     
     @Nullable
     @Override
-    public FluidStack drain(int maxDrain, boolean doDrain)
+    public FluidStack drain(int maxDrain, FluidAction doDrain)
     {
-        if(!fluidTank.canDrain())
+        if(!(refFluid != null && fluidTank.getFluidAmount() > 0))
         {
             return null;
         } else if(stackCapacity < 0)
         {
             FluidStack out = refFluid.copy();
-            out.amount = maxDrain;
+            out.setAmount(maxDrain);
             return out;
         } else if(count <= 0)
         {
@@ -314,15 +342,15 @@ public class CapabilityBarrel implements ICrate, IBarrel
         }
         
         FluidStack out = refFluid.copy();
-        out.amount = Math.min(maxDrain, count);
+        out.setAmount(Math.min(maxDrain, count));
         
-        if(doDrain)
+        if(doDrain.execute())
         {
-            count -= out.amount;
+            count -= out.getAmount();
             
             if(count <= 0 && !lock)
             {
-                refFluid = null;
+                refFluid = FluidStack.EMPTY;
             }
             
             syncContainer();
@@ -355,12 +383,14 @@ public class CapabilityBarrel implements ICrate, IBarrel
     @Override
     public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate)
     {
-        if(slot < 0 || slot >= 2 || refFluid != null || stack.isEmpty() || !BdsmConfig.multiPurposeBarrel || BdsmConfig.isBlacklisted(stack))
+        if(slot < 0 || slot >= 2 || refFluid != null || stack.isEmpty() || !BdsmConfig.COMMON.multiPurposeBarrel.get() || BdsmConfig.isBlacklisted(stack))
         {
             return stack;
         } else if(refStack.isEmpty() || (stackCapacity < 0 && !lock))
         {
-            if(lock || stack.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null) || stack.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null) || stack.hasCapability(CapabilityEnergy.ENERGY, null))
+            if(lock || stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent() ||
+                    stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).isPresent() ||
+                    stack.getCapability(CapabilityEnergy.ENERGY, null).isPresent())
             {
                 return stack; // BANNED! Nested containers are not permitted!
             } else if(!simulate)
@@ -369,17 +399,18 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 count = Math.min(stack.getCount(), (stackCapacity < 0 ? (1 << 15) : stackCapacity) * stack.getMaxStackSize());
                 refStack.setCount(1);
                 
-                cachedOres.clear();
-                int[] aryIDs = OreDictionary.getOreIDs(refStack);
+                cachedTags.clear();
+                ITagCollectionSupplier tagCollection = TagCollectionManager.getManager();
+                Set<ResourceLocation> aryIDs = refStack.getItem().getTags();
                 topLoop:
-                for(int id : aryIDs)
+                for(ResourceLocation id : aryIDs)
                 {
-                    String name = OreDictionary.getOreName(id);
+                    String name = id.toString();
                     for(String bl : BdsmConfig.oreDictBlacklist)
                     {
                         if(name.matches(bl)) continue topLoop;
                     }
-                    cachedOres.add(new OreIngredient(name));
+                    cachedTags.add((Tag<Item>) tagCollection.getItemTags().get(id));
                 }
                 
                 syncContainer();
@@ -451,7 +482,7 @@ public class CapabilityBarrel implements ICrate, IBarrel
             if(count <= 0 && !lock)
             {
                 refStack = ItemStack.EMPTY;
-                cachedOres.clear();
+                cachedTags.clear();
             }
             
             syncContainer();
@@ -465,17 +496,22 @@ public class CapabilityBarrel implements ICrate, IBarrel
     {
         return overflow ? Integer.MAX_VALUE : (getRefItem().isEmpty() ? 64 : getRefItem().getMaxStackSize()) * stackCapacity;
     }
-    
+
     @Override
-    public boolean installUpgrade(@Nonnull EntityPlayer player, @Nonnull ItemStack stack)
+    public boolean isItemValid(int slot, @Nonnull ItemStack stack) {
+        return false;
+    }
+
+    @Override
+    public boolean installUpgrade(@Nonnull PlayerEntity player, @Nonnull ItemStack stack)
     {
         if(stack.isEmpty()) return false;
         
-        if(stack.getItem() == BDSM.itemUpgrade)
+        if(stack.getItem().isIn(BDSMTags.UPGRADES))
         {
-            if(stack.getItemDamage() >= 0 && stack.getItemDamage() < 4) // Capacity upgrade
+            if(stack.getItem() instanceof UpgradeItem) // Capacity upgrade
             {
-                int value = 64 << (stack.getItemDamage() * 2);
+                int value = ((UpgradeItem)stack.getItem()).value;
                 int remCap = getUpgradeCap() - getStackCap();
                 
                 if(remCap > 0) // Upgrades are now lossy if not exact
@@ -483,7 +519,7 @@ public class CapabilityBarrel implements ICrate, IBarrel
                     setStackCap(getStackCap() + Math.min(value, remCap));
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -493,8 +529,8 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 }
                 
                 return false;
-                
-            } else if(stack.getItemDamage() == 4) // Creative upgrade
+
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_CREATIVE.get()) // Creative upgrade
             {
                 if(getStackCap() >= 0)
                 {
@@ -502,7 +538,7 @@ public class CapabilityBarrel implements ICrate, IBarrel
                     count = 1 << 15;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -512,14 +548,14 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 5) // Ore Dict upgrade
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_ORE.get()) // Ore Dict upgrade
             {
                 if(!oreDict)
                 {
                     oreDict = true;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -529,14 +565,14 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 6) // Void upgrade
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_VOID.get()) // Void upgrade
             {
                 if(!overflow)
                 {
                     overflow = true;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -546,31 +582,31 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 7) // Upgrade Reset
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_UNINSTALL.get()) // Upgrade Reset
             {
                 if(count <= 0 || stackCapacity < 0)
                 {
                     // We're not going to refund creative players. They can just spawn more whenever
-                    if(!player.capabilities.isCreativeMode && getStackCap() > 64)
+                    if(!player.abilities.isCreativeMode && getStackCap() > 64)
                     {
                         int rem = getStackCap() - 64;
         
                         while(rem >= 64)
                         {
-                            ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 0);
-            
+                            ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_64.get());
+
                             if(rem >= 4096)
                             {
-                                drop.setItemDamage(3);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_4096.get());
                             } else if(rem >= 1024)
                             {
-                                drop.setItemDamage(2);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_1024.get());
                             } else if(rem >= 256)
                             {
-                                drop.setItemDamage(1);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_256.get());
                             }
-            
-                            rem -= 64 << (drop.getItemDamage() * 2);
+
+                            rem = 0;
             
                             if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                         }
@@ -581,15 +617,15 @@ public class CapabilityBarrel implements ICrate, IBarrel
                     if(!lock)
                     {
                         refStack = ItemStack.EMPTY;
-                        refFluid = null;
+                        refFluid = FluidStack.EMPTY;
                     }
                 }
                 
                 if(oreDict)
                 {
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
-                        ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 5);
+                        ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_ORE.get(), 1);
                         if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                     }
                     oreDict = false;
@@ -597,9 +633,9 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 
                 if(overflow)
                 {
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
-                        ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 6);
+                        ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_VOID.get(), 1);
                         if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                     }
                     overflow = false;
@@ -608,15 +644,15 @@ public class CapabilityBarrel implements ICrate, IBarrel
                 syncContainer();
                 return true;
             }
-        } else if(stack.getItem() == BDSM.itemKey)
+        } else if(stack.getItem() == BDSMRegistry.CRATE_KEY.get())
         {
             lock = !lock;
             
             if(!lock && getCount() <= 0)
             {
                 refStack = ItemStack.EMPTY;
-                cachedOres.clear();
-                refFluid = null;
+                cachedTags.clear();
+                refFluid = FluidStack.EMPTY;
             }
             
             syncContainer();
@@ -628,29 +664,29 @@ public class CapabilityBarrel implements ICrate, IBarrel
     }
     
     @Override
-    public NBTTagCompound serializeNBT()
+    public CompoundNBT serializeNBT()
     {
-        NBTTagCompound nbt = new NBTTagCompound();
-        nbt.setTag("refStack", refStack.writeToNBT(new NBTTagCompound()));
-        nbt.setTag("refFluid", refFluid == null ? new NBTTagCompound() : refFluid.writeToNBT(new NBTTagCompound()));
-        nbt.setInteger("count", count);
-        nbt.setInteger("stackCap", stackCapacity);
-        nbt.setInteger("maxCap", maxStackCapacity);
-        nbt.setBoolean("oreDict", oreDict);
-        nbt.setBoolean("overflow", overflow);
-        nbt.setBoolean("locked", lock);
-        nbt.setIntArray("objColors", colors);
+        CompoundNBT nbt = new CompoundNBT();
+        nbt.put("refStack", refStack.write(new CompoundNBT()));
+        nbt.put("refFluid", refFluid.isEmpty() ? new CompoundNBT() : refFluid.writeToNBT(new CompoundNBT()));
+        nbt.putInt("count", count);
+        nbt.putInt("stackCap", stackCapacity);
+        nbt.putInt("maxCap", maxStackCapacity);
+        nbt.putBoolean("oreDict", oreDict);
+        nbt.putBoolean("overflow", overflow);
+        nbt.putBoolean("locked", lock);
+        nbt.putIntArray("objColors", colors);
         return nbt;
     }
     
     @Override
-    public void deserializeNBT(NBTTagCompound nbt)
+    public void deserializeNBT(CompoundNBT nbt)
     {
-        refStack = new ItemStack(nbt.getCompoundTag("refStack"));
-        refFluid = FluidStack.loadFluidStackFromNBT(nbt.getCompoundTag("refFluid"));
-        count = nbt.getInteger("count");
-        stackCapacity = nbt.getInteger("stackCap");
-        maxStackCapacity = nbt.getInteger("maxCap");
+        refStack = ItemStack.read(nbt.getCompound("refStack"));
+        refFluid = FluidStack.loadFluidStackFromNBT(nbt.getCompound("refFluid"));
+        count = nbt.getInt("count");
+        stackCapacity = nbt.getInt("stackCap");
+        maxStackCapacity = nbt.getInt("maxCap");
         oreDict = nbt.getBoolean("oreDict");
         overflow = nbt.getBoolean("overflow");
         lock = nbt.getBoolean("locked");
@@ -658,17 +694,18 @@ public class CapabilityBarrel implements ICrate, IBarrel
         
         if(!refStack.isEmpty())
         {
-            cachedOres.clear();
-            int[] aryIDs = OreDictionary.getOreIDs(refStack);
+            cachedTags.clear();
+            ITagCollectionSupplier tagCollection = TagCollectionManager.getManager();
+            Set<ResourceLocation> aryIDs = refStack.getItem().getTags();
             topLoop:
-            for(int id : aryIDs)
+            for(ResourceLocation id : aryIDs)
             {
-                String name = OreDictionary.getOreName(id);
+                String name = id.toString();
                 for(String bl : BdsmConfig.oreDictBlacklist)
                 {
                     if(name.matches(bl)) continue topLoop;
                 }
-                cachedOres.add(new OreIngredient(name));
+                cachedTags.add((Tag<Item>) tagCollection.getItemTags().get(id));
             }
             
             if(!slotRef.isEmpty() && canMergeWith(slotRef))
@@ -684,16 +721,16 @@ public class CapabilityBarrel implements ICrate, IBarrel
             slotRef = ItemStack.EMPTY;
         }
     }
-    
-    private final IFluidTankProperties fluidTank = new IFluidTankProperties()
+
+    private final FluidTank fluidTank = new FluidTank(overflow ? Integer.MAX_VALUE : stackCapacity < 0 ? (1 << 15) : (stackCapacity * 1000))
     {
         @Nullable
         @Override
-        public FluidStack getContents()
+        public FluidStack getFluid()
         {
-            if(refFluid == null) return null;
+            if(refFluid.isEmpty()) return FluidStack.EMPTY;
             FluidStack tmp = refFluid.copy();
-            tmp.amount = getCount();
+            tmp.setAmount(getCount());
             return tmp;
         }
         
@@ -702,29 +739,10 @@ public class CapabilityBarrel implements ICrate, IBarrel
         {
             return overflow ? Integer.MAX_VALUE : stackCapacity < 0 ? (1 << 15) : (stackCapacity * 1000);
         }
-        
-        @Override
-        public boolean canFill()
-        {
-            return refStack.isEmpty();
-        }
 
         @Override
-        public boolean canDrain()
-        {
-            return refFluid != null && getCount() > 0;
-        }
-
-        @Override
-        public boolean canFillFluidType(FluidStack fluidStack)
-        {
-            return canFill() && !BdsmConfig.isBlacklisted(fluidStack) && (refFluid == null || refFluid.isFluidEqual(fluidStack));
-        }
-
-        @Override
-        public boolean canDrainFluidType(FluidStack fluidStack)
-        {
-            return canDrain() && refFluid.isFluidEqual(fluidStack);
+        public boolean isFluidValid(FluidStack fluidStack) {
+            return super.isFluidValid(fluidStack) && !BdsmConfig.isBlacklisted(fluidStack) && (refFluid.isEmpty() || refFluid.isFluidEqual(fluidStack));
         }
     };
 }

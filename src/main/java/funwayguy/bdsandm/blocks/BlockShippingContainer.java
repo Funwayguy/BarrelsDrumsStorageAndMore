@@ -1,128 +1,114 @@
 package funwayguy.bdsandm.blocks;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityShipping;
+import funwayguy.bdsandm.blocks.tiles.ShippingTileEntity;
 import funwayguy.bdsandm.client.color.IBdsmColorBlock;
-import funwayguy.bdsandm.core.BDSM;
 import funwayguy.bdsandm.inventory.InventoryShipping;
 import net.minecraft.block.Block;
-import net.minecraft.block.ITileEntityProvider;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.properties.PropertyBool;
-import net.minecraft.block.properties.PropertyInteger;
-import net.minecraft.block.state.BlockStateContainer;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.entity.EntitySpawnPlacementRegistry.PlacementType;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.InventoryHelper;
+import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.state.BooleanProperty;
+import net.minecraft.state.IntegerProperty;
+import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.BlockRenderLayer;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.network.NetworkHooks;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlockShippingContainer extends Block implements ITileEntityProvider, IBdsmColorBlock
-{
-    private static final PropertyInteger PROXY_IDX = PropertyInteger.create("index", 0, 7);
-    private static final PropertyBool TURNED = PropertyBool.create("turned");
+public class BlockShippingContainer extends Block implements IBdsmColorBlock {
+    private static final IntegerProperty PROXY_IDX = IntegerProperty.create("index", 0, 7);
+    private static final BooleanProperty TURNED = BooleanProperty.create("turned");
     private static boolean multiBreak = false; // Keeps the multiblock breaking from triggering more attempts cascading break attempts
-    
-    public BlockShippingContainer()
-    {
-        super(Material.IRON);
-        
-        this.setDefaultState(this.blockState.getBaseState().withProperty(PROXY_IDX, 0).withProperty(TURNED, false));
-        this.setTranslationKey(BDSM.MOD_ID + ".shipping_container");
-        this.setCreativeTab(BDSM.tabBdsm);
+
+    public BlockShippingContainer(Properties properties) {
+        super(properties);
+
+        this.setDefaultState(this.stateContainer.getBaseState().with(PROXY_IDX, 0).with(TURNED, false));
     }
-    
+
     @Override
-    public int getColorCount(IBlockAccess blockAccess, IBlockState state, BlockPos pos)
-    {
+    public int getColorCount(IBlockReader blockAccess, BlockState state, BlockPos pos) {
         TileEntity tile = blockAccess.getTileEntity(pos);
-        
-        if(tile instanceof TileEntityShipping)
-        {
-            TileEntityShipping proxy = ((TileEntityShipping)tile).getProxyTile();
-            if(proxy != null) return proxy.getColorCount();
+
+        if (tile instanceof ShippingTileEntity) {
+            ShippingTileEntity proxy = ((ShippingTileEntity) tile).getProxyTile();
+            if (proxy != null) return proxy.getColorCount();
         }
-        
+
         return 0;
     }
-    
+
     @Override
-    public int[] getColors(IBlockAccess blockAccess, IBlockState state, BlockPos pos)
-    {
+    public int[] getColors(IBlockReader blockAccess, BlockState state, BlockPos pos) {
         TileEntity tile = blockAccess.getTileEntity(pos);
-        
-        if(tile instanceof TileEntityShipping)
-        {
-            TileEntityShipping proxy = ((TileEntityShipping)tile).getProxyTile();
-            if(proxy != null) return proxy.getColors();
+
+        if (tile instanceof ShippingTileEntity) {
+            ShippingTileEntity proxy = ((ShippingTileEntity) tile).getProxyTile();
+            if (proxy != null) return proxy.getColors();
         }
-        
+
         return new int[0];
     }
-    
+
     @Override
-    public void setColors(IBlockAccess blockAccess, IBlockState state, BlockPos pos, int[] colors)
-    {
+    public void setColors(IBlockReader blockAccess, BlockState state, BlockPos pos, int[] colors) {
         TileEntity tile = blockAccess.getTileEntity(pos);
-        
-        if(tile instanceof TileEntityShipping)
-        {
-            TileEntityShipping proxy = ((TileEntityShipping)tile).getProxyTile();
-            if(proxy == null) return;
-            
+
+        if (tile instanceof ShippingTileEntity) {
+            ShippingTileEntity proxy = ((ShippingTileEntity) tile).getProxyTile();
+            if (proxy == null) return;
+
             proxy.setColors(colors);
             tile.markDirty();
-            tile.getWorld().markBlockRangeForRenderUpdate(pos, pos);
+            tile.getWorld().markBlockRangeForRenderUpdate(pos, state, state);
         }
     }
-    
-	@Override
-    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand, EnumFacing heldItem, float side, float hitX, float hitY)
-    {
-    	if(!world.isRemote)
-    	{
-    		player.openGui(BDSM.INSTANCE, 0, world, pos.getX(), pos.getY(), pos.getZ());
-    	}
-    	
-        return true;
-    }
-    
+
     @Override
-    public void breakBlock(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state)
-    {
-        if(multiBreak)
-        {
-            super.breakBlock(worldIn, pos, state);
+    public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player, Hand handIn, BlockRayTraceResult hit) {
+        TileEntity tileentity = worldIn.getTileEntity(pos);
+        if (!worldIn.isRemote && tileentity instanceof ShippingTileEntity) {
+            NetworkHooks.openGui((ServerPlayerEntity) player, (ShippingTileEntity) tileentity, pos);
+        }
+
+        return ActionResultType.SUCCESS;
+    }
+
+    @Override
+    public void onReplaced(BlockState state, World worldIn, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (multiBreak) {
+            super.onReplaced(state, worldIn, pos, newState, isMoving);
             return;
         }
-        
+
         multiBreak = true;
-        
+
         TileEntity tile = worldIn.getTileEntity(pos);
-        
-        if(tile instanceof TileEntityShipping)
-        {
-            InventoryShipping invo = ((TileEntityShipping)tile).getContainerInvo();
-            if(invo != null) InventoryHelper.dropInventoryItems(worldIn, pos, invo);
+
+        if (tile instanceof ShippingTileEntity) {
+            InventoryShipping invo = ((ShippingTileEntity) tile).getContainerInvo();
+            if (invo != null) InventoryHelper.dropInventoryItems(worldIn, pos, invo);
         }
-        
-        int myIdx = state.getValue(PROXY_IDX);
+
+        int myIdx = state.get(PROXY_IDX);
         BlockPos startPos;
-        
-        switch(myIdx)
-        {
+
+        switch (myIdx) {
             case 4:
                 startPos = pos.add(-1, 0, 0);
                 break;
@@ -150,39 +136,33 @@ public class BlockShippingContainer extends Block implements ITileEntityProvider
             default:
                 startPos = pos;
         }
-        
-        for(int i = 0; i < 2; i++)
-        {
-            for(int j = 0; j < 2; j++)
-            {
-                for(int k = 0; k < 2; k++)
-                {
+
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 2; k++) {
                     int idx = (i * 4) + (j * 2) + k;
-                    
-                    if(idx == myIdx)
-                    {
+
+                    if (idx == myIdx) {
                         continue;
                     }
-                    
-                    worldIn.setBlockToAir(startPos.add(i, j, k));
+
+                    worldIn.setBlockState(startPos.add(i, j, k), Blocks.AIR.getDefaultState());
                 }
             }
         }
-        
-        super.breakBlock(worldIn, pos, state);
-        
+
+        super.onReplaced(state, worldIn, pos, newState, isMoving);
+
         multiBreak = false;
     }
-    
+
     @Override
-    public void onBlockPlacedBy(World worldIn, BlockPos pos, IBlockState state, EntityLivingBase placer, ItemStack stack)
-    {
+    public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
         boolean turnIt = placer.getHorizontalFacing().getHorizontalIndex() % 2 == 0; // This really only matters index 0 and 4 but we set them all for consistency
         int myIdx = new int[]{4, 5, 1, 0}[placer.getHorizontalFacing().getHorizontalIndex()];
         BlockPos startPos;
-        
-        switch(myIdx)
-        {
+
+        switch (myIdx) {
             case 4:
                 startPos = pos.add(-1, 0, 0);
                 break;
@@ -195,100 +175,64 @@ public class BlockShippingContainer extends Block implements ITileEntityProvider
             default:
                 startPos = pos;
         }
-        
-        for(int i = 0; i < 2; i++)
-        {
-            for(int j = 0; j < 2; j++)
-            {
-                for(int k = 0; k < 2; k++)
-                {
+
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 2; k++) {
                     int idx = (i * 4) + (j * 2) + k;
-                    
-                    if(idx == myIdx)
-                    {
+
+                    if (idx == myIdx) {
                         continue;
                     }
-                    
-                    worldIn.setBlockState(startPos.add(i, j, k), this.getDefaultState().withProperty(PROXY_IDX, idx).withProperty(TURNED, turnIt));
+
+                    worldIn.setBlockState(startPos.add(i, j, k), this.getDefaultState().with(PROXY_IDX, idx).with(TURNED, turnIt));
                 }
             }
         }
     }
-	
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public EnumBlockRenderType getRenderType(IBlockState state)
-    {
-        if(state.getValue(TURNED))
-        {
-            return state.getValue(PROXY_IDX) == 4 ? EnumBlockRenderType.MODEL : EnumBlockRenderType.INVISIBLE;
-        } else
-        {
-            return state.getValue(PROXY_IDX) == 0 ? EnumBlockRenderType.MODEL : EnumBlockRenderType.INVISIBLE;
+    public BlockRenderType getRenderType(BlockState state) {
+        if (state.get(TURNED)) {
+            return state.get(PROXY_IDX) == 4 ? BlockRenderType.MODEL : BlockRenderType.INVISIBLE;
+        } else {
+            return state.get(PROXY_IDX) == 0 ? BlockRenderType.MODEL : BlockRenderType.INVISIBLE;
         }
     }
-    
-    @Nonnull
-	@Override
-    @SideOnly(Side.CLIENT)
-    public BlockRenderLayer getRenderLayer()
-    {
-        return BlockRenderLayer.CUTOUT;
-    }
-    
+
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean isFullCube(IBlockState state)
+    public boolean propagatesSkylightDown(BlockState state, IBlockReader reader, BlockPos pos)
     {
-        return false;
+        return true;
     }
-    
-    @Override
-    @SuppressWarnings("deprecation")
-    public boolean isOpaqueCube(IBlockState state)
-    {
-        return false;
-    }
-    
-    @Override
-    public int getMetaFromState(IBlockState state)
-    {
-        return state.getValue(PROXY_IDX) | (state.getValue(TURNED) ? 8 : 0);
-    }
-    
+
     @Nonnull
     @Override
-    public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, @Nonnull EntityLivingBase placer, EnumHand hand)
-    {
-        return this.getDefaultState().withProperty(PROXY_IDX, new int[]{4, 5, 1, 0}[placer.getHorizontalFacing().getHorizontalIndex()]).withProperty(TURNED, placer.getHorizontalFacing().getHorizontalIndex() % 2 == 0);
+    public BlockState getStateForPlacement(BlockItemUseContext context) {
+        return this.getDefaultState().with(PROXY_IDX, new int[]{4, 5, 1, 0}[context.getPlacementHorizontalFacing().getHorizontalIndex()]).with(TURNED, context.getPlacementHorizontalFacing().getHorizontalIndex() % 2 == 0);
     }
-    
+
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
-    public IBlockState getStateFromMeta(int meta)
-    {
-        return this.getDefaultState().withProperty(PROXY_IDX, meta & 7).withProperty(TURNED, (meta & 8) == 8);
+    protected void fillStateContainer(StateContainer.Builder<Block, BlockState> builder) {
+        builder.add(PROXY_IDX, TURNED);
     }
-    
-    @Nonnull
+
     @Override
-    protected BlockStateContainer createBlockState()
-    {
-        return new BlockStateContainer(this, PROXY_IDX, TURNED);
+    public boolean hasTileEntity(BlockState state) {
+        return true;
     }
-    
+
     @Nullable
     @Override
-    public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
-    {
-        return new TileEntityShipping(meta);
+    public TileEntity createTileEntity(BlockState state, IBlockReader world) {
+        return new ShippingTileEntity(state.get(PROXY_IDX));
     }
-    
+
     @Override
-    public boolean canCreatureSpawn(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, net.minecraft.entity.EntityLiving.SpawnPlacementType type)
-    {
+    public boolean canCreatureSpawn(BlockState state, IBlockReader world, BlockPos pos, PlacementType type, EntityType<?> entityType) {
         return true;
     }
 }

@@ -1,25 +1,32 @@
 package funwayguy.bdsandm.inventory.capability;
 
-import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.core.BDSMTags;
 import funwayguy.bdsandm.core.BdsmConfig;
-import net.minecraft.entity.player.EntityPlayer;
+import funwayguy.bdsandm.core.BDSMRegistry;
+import funwayguy.bdsandm.items.UpgradeItem;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.tags.ITag;
+import net.minecraft.tags.ITagCollectionSupplier;
+import net.minecraft.tags.Tag;
+import net.minecraft.tags.TagCollectionManager;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.oredict.OreDictionary;
-import net.minecraftforge.oredict.OreIngredient;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 public class CapabilityCrate implements ICrate
 {
     private ItemStack refStack = ItemStack.EMPTY;
-    private final List<OreIngredient> cachedOres = new ArrayList<>();
+    private final List<ITag<Item>> cachedTags = new ArrayList<>();
     private int maxStackCapacity;
     private boolean oreDict = false;
     private boolean lock = false;
@@ -100,9 +107,9 @@ public class CapabilityCrate implements ICrate
                 return true;
             } else if(oreDict)
             {
-                for(OreIngredient ing : cachedOres)
+                for(ITag<Item> ing : cachedTags)
                 {
-                    if(ing.apply(stack))
+                    if(stack.getItem().isIn(ing))
                     {
                         return true;
                     }
@@ -209,7 +216,9 @@ public class CapabilityCrate implements ICrate
             return stack;
         } else if(refStack.isEmpty() || (stackCapacity < 0 && !lock))
         {
-            if(lock || stack.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null) || stack.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null) || stack.hasCapability(CapabilityEnergy.ENERGY, null))
+            if(lock || stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent() ||
+                    stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).isPresent() ||
+                    stack.getCapability(CapabilityEnergy.ENERGY, null).isPresent())
             {
                 return stack; // BANNED! Nested containers are not permitted!
             } else if(!simulate)
@@ -218,17 +227,18 @@ public class CapabilityCrate implements ICrate
                 count = Math.min(stack.getCount(), (stackCapacity < 0 ? (1 << 15) : stackCapacity) * stack.getMaxStackSize());
                 refStack.setCount(1);
                 
-                cachedOres.clear();
-                int[] aryIDs = OreDictionary.getOreIDs(refStack);
+                cachedTags.clear();
+                ITagCollectionSupplier tagCollection = TagCollectionManager.getManager();
+                Set<ResourceLocation> aryIDs = refStack.getItem().getTags();
                 topLoop:
-                for(int id : aryIDs)
+                for(ResourceLocation id : aryIDs)
                 {
-                    String name = OreDictionary.getOreName(id);
+                    String name = id.toString();
                     for(String bl : BdsmConfig.oreDictBlacklist)
                     {
                         if(name.matches(bl)) continue topLoop;
                     }
-                    cachedOres.add(new OreIngredient(name));
+                    cachedTags.add((Tag<Item>) tagCollection.getItemTags().get(id));
                 }
                 
                 syncContainer();
@@ -284,7 +294,7 @@ public class CapabilityCrate implements ICrate
             if(count <= 0 && !lock)
             {
                 refStack = ItemStack.EMPTY;
-                cachedOres.clear();
+                cachedTags.clear();
             }
             
             syncContainer();
@@ -298,7 +308,13 @@ public class CapabilityCrate implements ICrate
     {
         return overflow ? Integer.MAX_VALUE : (refStack.isEmpty() ? 64 : refStack.getMaxStackSize()) * stackCapacity;
     }
-    
+
+    @Override
+    public boolean isItemValid(int slot, @Nonnull ItemStack stack)
+    {
+        return true;
+    }
+
     @Override
     public void copyContainer(IStackContainer crate)
     {
@@ -306,15 +322,15 @@ public class CapabilityCrate implements ICrate
     }
     
     @Override
-    public boolean installUpgrade(@Nonnull EntityPlayer player, @Nonnull ItemStack stack)
+    public boolean installUpgrade(@Nonnull PlayerEntity player, @Nonnull ItemStack stack)
     {
         if(stack.isEmpty()) return false;
         
-        if(stack.getItem() == BDSM.itemUpgrade)
+        if(stack.getItem().isIn(BDSMTags.UPGRADES))
         {
-            if(stack.getItemDamage() >= 0 && stack.getItemDamage() < 4) // Capacity upgrade
+            if(stack.getItem() instanceof UpgradeItem) // Capacity upgrade
             {
-                int value = 64 << (stack.getItemDamage() * 2);
+                int value = ((UpgradeItem)stack.getItem()).value;
                 int remCap = getUpgradeCap() - getStackCap();
                 
                 if(remCap > 0) // Upgrades are now lossy if not exact
@@ -322,7 +338,7 @@ public class CapabilityCrate implements ICrate
                     setStackCap(getStackCap() + Math.min(value, remCap));
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -333,7 +349,7 @@ public class CapabilityCrate implements ICrate
                 
                 return false;
                 
-            } else if(stack.getItemDamage() == 4) // Creative upgrade
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_CREATIVE.get()) // Creative upgrade
             {
                 if(getStackCap() >= 0)
                 {
@@ -341,7 +357,7 @@ public class CapabilityCrate implements ICrate
                     count = 1 << 15;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -351,14 +367,14 @@ public class CapabilityCrate implements ICrate
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 5) // Ore Dict upgrade
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_ORE.get()) // Ore Dict upgrade
             {
                 if(!oreDict)
                 {
                     oreDict = true;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -368,14 +384,14 @@ public class CapabilityCrate implements ICrate
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 6) // Void upgrade
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_VOID.get()) // Void upgrade
             {
                 if(!overflow)
                 {
                     overflow = true;
                     syncContainer();
                     
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
                         stack.shrink(1);
                         player.inventory.markDirty();
@@ -385,31 +401,31 @@ public class CapabilityCrate implements ICrate
                 }
                 
                 return false;
-            } else if(stack.getItemDamage() == 7) // Upgrade Reset
+            } else if(stack.getItem() == BDSMRegistry.UPGRADE_UNINSTALL.get()) // Upgrade Reset
             {
                 if(count <= 0 || stackCapacity < 0)
                 {
                     // We're not going to refund creative players. They can just spawn more whenever
-                    if(!player.capabilities.isCreativeMode && getStackCap() > 64)
+                    if(!player.abilities.isCreativeMode && getStackCap() > 64)
                     {
                         int rem = getStackCap() - 64;
         
                         while(rem >= 64)
                         {
-                            ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 0);
+                            ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_64.get());
             
                             if(rem >= 4096)
                             {
-                                drop.setItemDamage(3);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_4096.get());
                             } else if(rem >= 1024)
                             {
-                                drop.setItemDamage(2);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_1024.get());
                             } else if(rem >= 256)
                             {
-                                drop.setItemDamage(1);
+                                drop = new ItemStack(BDSMRegistry.UPGRADE_256.get());
                             }
-            
-                            rem -= 64 << (drop.getItemDamage() * 2);
+
+                            rem = 0;
             
                             if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                         }
@@ -422,9 +438,9 @@ public class CapabilityCrate implements ICrate
                 
                 if(oreDict)
                 {
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
-                        ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 5);
+                        ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_ORE.get(), 1);
                         if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                     }
                     oreDict = false;
@@ -432,9 +448,9 @@ public class CapabilityCrate implements ICrate
                 
                 if(overflow)
                 {
-                    if(!player.capabilities.isCreativeMode)
+                    if(!player.abilities.isCreativeMode)
                     {
-                        ItemStack drop = new ItemStack(BDSM.itemUpgrade, 1, 6);
+                        ItemStack drop = new ItemStack(BDSMRegistry.UPGRADE_VOID.get(), 1);
                         if(!player.addItemStackToInventory(drop)) player.dropItem(drop, true, false);
                     }
                     overflow = false;
@@ -443,14 +459,14 @@ public class CapabilityCrate implements ICrate
                 syncContainer();
                 return true;
             }
-        } else if(stack.getItem() == BDSM.itemKey)
+        } else if(stack.getItem() == BDSMRegistry.CRATE_KEY.get())
         {
             lock = !lock;
             
             if(!lock && getCount() <= 0)
             {
                 refStack = ItemStack.EMPTY;
-                cachedOres.clear();
+                cachedTags.clear();
             }
             
             syncContainer();
@@ -462,27 +478,27 @@ public class CapabilityCrate implements ICrate
     }
     
     @Override
-    public NBTTagCompound serializeNBT()
+    public CompoundNBT serializeNBT()
     {
-        NBTTagCompound nbt = new NBTTagCompound();
-        nbt.setTag("refStack", refStack.writeToNBT(new NBTTagCompound()));
-        nbt.setInteger("count", count);
-        nbt.setInteger("stackCap", stackCapacity);
-        nbt.setInteger("maxCap", maxStackCapacity);
-        nbt.setBoolean("oreDict", oreDict);
-        nbt.setBoolean("overflow", overflow);
-        nbt.setBoolean("locked", lock);
-        nbt.setIntArray("objColors", colors);
+        CompoundNBT nbt = new CompoundNBT();
+        nbt.put("refStack", refStack.write(new CompoundNBT()));
+        nbt.putInt("count", count);
+        nbt.putInt("stackCap", stackCapacity);
+        nbt.putInt("maxCap", maxStackCapacity);
+        nbt.putBoolean("oreDict", oreDict);
+        nbt.putBoolean("overflow", overflow);
+        nbt.putBoolean("locked", lock);
+        nbt.putIntArray("objColors", colors);
         return nbt;
     }
     
     @Override
-    public void deserializeNBT(NBTTagCompound nbt)
+    public void deserializeNBT(CompoundNBT nbt)
     {
-        refStack = new ItemStack(nbt.getCompoundTag("refStack"));
-        count = nbt.getInteger("count");
-        stackCapacity = nbt.getInteger("stackCap");
-        maxStackCapacity = nbt.getInteger("maxCap");
+        refStack = ItemStack.read(nbt.getCompound("refStack"));
+        count = nbt.getInt("count");
+        stackCapacity = nbt.getInt("stackCap");
+        maxStackCapacity = nbt.getInt("maxCap");
         oreDict = nbt.getBoolean("oreDict");
         overflow = nbt.getBoolean("overflow");
         lock = nbt.getBoolean("locked");
@@ -490,17 +506,18 @@ public class CapabilityCrate implements ICrate
         
         if(!refStack.isEmpty())
         {
-            cachedOres.clear();
-            int[] aryIDs = OreDictionary.getOreIDs(refStack);
+            cachedTags.clear();
+            ITagCollectionSupplier tagCollection = TagCollectionManager.getManager();
+            Set<ResourceLocation> aryIDs = refStack.getItem().getTags();
             topLoop:
-            for(int id : aryIDs)
+            for(ResourceLocation id : aryIDs)
             {
-                String name = OreDictionary.getOreName(id);
+                String name = id.toString();
                 for(String bl : BdsmConfig.oreDictBlacklist)
                 {
                     if(name.matches(bl)) continue topLoop;
                 }
-                cachedOres.add(new OreIngredient(name));
+                cachedTags.add((Tag<Item>) tagCollection.getItemTags().get(id));
             }
             
             if(!slotRef.isEmpty() && canMergeWith(slotRef))

@@ -1,6 +1,5 @@
 package funwayguy.bdsandm.inventory.capability;
 
-public interface ICrateCallback
-{
+public interface ICrateCallback {
     void onCrateChanged();
 }

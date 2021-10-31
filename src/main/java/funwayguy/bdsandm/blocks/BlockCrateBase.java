@@ -1,64 +1,70 @@
 package funwayguy.bdsandm.blocks;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityCrate;
-import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.blocks.tiles.CrateTileEntity;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.ICrate;
-import funwayguy.bdsandm.network.PacketBdsm;
-import net.minecraft.block.BlockDirectional;
-import net.minecraft.block.ITileEntityProvider;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.BlockStateContainer;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
+import funwayguy.bdsandm.network.ServerPacketBdsm;
+import funwayguy.bdsandm.network.PacketHandler;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.DirectionalBlock;
+import net.minecraft.entity.EntitySpawnPlacementRegistry.PlacementType;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.*;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Direction;
+import net.minecraft.util.Hand;
+import net.minecraft.util.Mirror;
+import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlockCrateBase extends BlockDirectional implements ITileEntityProvider, IStorageBlock
+public class BlockCrateBase extends DirectionalBlock implements IStorageBlock
 {
     private final int initCap;
     private final int maxCap;
-    
+
     @SuppressWarnings("WeakerAccess")
-    public BlockCrateBase(Material material, int initCap, int maxCap)
+    public BlockCrateBase(Properties properties, int initCap, int maxCap)
     {
-        super(material);
-        this.setDefaultState(this.blockState.getBaseState().withProperty(FACING, EnumFacing.NORTH));
-        this.setCreativeTab(BDSM.tabBdsm);
-        
+        super(properties);
+        this.setDefaultState(this.stateContainer.getBaseState().with(FACING, Direction.NORTH));
+
         this.initCap = initCap;
         this.maxCap = maxCap;
     }
-    
+
     @Override
-    public void onPlayerInteract(World world, BlockPos pos, IBlockState state, EnumFacing side, EntityPlayerMP player, EnumHand hand, boolean isHit, boolean altMode, int clickDelay)
+    public void onPlayerInteract(World world, BlockPos pos, BlockState state, Direction side, ServerPlayerEntity player, Hand hand, boolean isHit, boolean altMode, int clickDelay)
     {
-        EnumFacing curFace = state.getValue(FACING);
+        Direction curFace = state.get(FACING);
         if(curFace != side.getOpposite()) return;
-        
+
         TileEntity tile = world.getTileEntity(pos);
-        if(!(tile instanceof TileEntityCrate)) return;
-        TileEntityCrate tileCrate = (TileEntityCrate)tile;
-        
-        ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null);
+        if(!(tile instanceof CrateTileEntity)) return;
+        CrateTileEntity tileCrate = (CrateTileEntity)tile;
+
+        ICrate crate = tile.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
         if(crate == null || (!isHit && crate.installUpgrade(player, player.getHeldItem(hand)))) return;
-        
+
         if(!isHit)
         {
             if(!player.isSneaking()) depositItem(crate, player, hand);
@@ -69,60 +75,60 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
                 withdrawItem(crate, player, player.isSneaking() ? 0 : 2);
             } else if(!player.isSneaking())
             {
-                int curClick = tileCrate.getClickCount(world.getTotalWorldTime(), clickDelay);
+                int curClick = tileCrate.getClickCount(world.getGameTime(), clickDelay);
                 if(curClick >= 0) withdrawItem(crate, player, curClick);
             }
         }
     }
-    
+
     @Override
-    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player, Hand handIn, BlockRayTraceResult hit)
     {
-        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return true;
-    
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setInteger("msgType", 2);
-        tag.setLong("pos", pos.toLong());
-        tag.setBoolean("isHit", false);
-        tag.setBoolean("offHand", hand == EnumHand.OFF_HAND);
-        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
-        
-        return true;
+        if(worldIn.isRemote || !(player instanceof ServerPlayerEntity)) return ActionResultType.SUCCESS;
+
+        CompoundNBT tag = new CompoundNBT();
+        tag.putInt("msgType", 2);
+        tag.putLong("pos", pos.toLong());
+        tag.putBoolean("isHit", false);
+        tag.putBoolean("offHand", handIn == Hand.OFF_HAND);
+        PacketHandler.NETWORK.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity)player), new ServerPacketBdsm(tag));
+
+        return ActionResultType.SUCCESS;
     }
-    
+
     @Override
-    public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
+    public void onBlockClicked(BlockState state, World worldIn, BlockPos pos, PlayerEntity player)
     {
-        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return;
-    
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setInteger("msgType", 2);
-        tag.setLong("pos", pos.toLong());
-        tag.setBoolean("isHit", true);
-        tag.setBoolean("offHand", false);
-        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
+        if(worldIn.isRemote || !(player instanceof ServerPlayerEntity)) return;
+
+        CompoundNBT tag = new CompoundNBT();
+        tag.putInt("msgType", 2);
+        tag.putLong("pos", pos.toLong());
+        tag.putBoolean("isHit", true);
+        tag.putBoolean("offHand", false);
+        PacketHandler.NETWORK.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity)player), new ServerPacketBdsm(tag));
     }
-    
-    private void depositItem(ICrate crate, EntityPlayer player, EnumHand hand)
+
+    private void depositItem(ICrate crate, PlayerEntity player, Hand hand)
     {
         ItemStack ref = crate.getRefItem();
         ItemStack held = player.getHeldItem(hand);
-        
-        if(!held.isEmpty() && (ref.isEmpty() || crate.canMergeWith(held) || held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null)))
+
+        if(!held.isEmpty() && (ref.isEmpty() || crate.canMergeWith(held) || held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent()))
         {
-            if(held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null))
+            if(held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent())
             {
-                IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
+                IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).orElse(null);
                 assert heldCrate != null;
-                
+
                 for(int s = 0; s < heldCrate.getSlots(); s++)
                 {
                     ItemStack transfer = heldCrate.extractItem(s, Integer.MAX_VALUE, true);
-                    
+
                     ItemStack transStack = transfer.copy();
                     transStack.setCount(transStack.getCount() * held.getCount());
                     int prev = transStack.getCount();
-                    
+
                     if(prev > 0 && (ref.isEmpty() || crate.canMergeWith(transStack)))
                     {
                         transStack = crate.insertItem(crate.getSlots() - 1, transStack, false);
@@ -138,7 +144,7 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
             for(int i = 0; i < player.inventory.getSizeInventory(); i++)
             {
                 ItemStack invoStack = player.inventory.getStackInSlot(i);
-                
+
                 if(crate.canMergeWith(invoStack))
                 {
                     invoStack = crate.insertItem(crate.getSlots() - 1, invoStack, false);
@@ -147,217 +153,203 @@ public class BlockCrateBase extends BlockDirectional implements ITileEntityProvi
                     if(done) break;
                 }
             }
-            
+
         }
     }
-    
-    private void withdrawItem(ICrate crate, EntityPlayer player, int clickCount)
+
+    private void withdrawItem(ICrate crate, PlayerEntity player, int clickCount)
     {
         if(!crate.getRefItem().isEmpty())
         {
             int count = clickCount <= 0 ? 1 : crate.getRefItem().getMaxStackSize();
             if(clickCount == 1) count--;
             ItemStack out = crate.extractItem(0, count, false);
-            if(player.getHeldItem(EnumHand.MAIN_HAND).isEmpty())
+            if(player.getHeldItem(Hand.MAIN_HAND).isEmpty())
             {
-                player.setHeldItem(EnumHand.MAIN_HAND, out);
+                player.setHeldItem(Hand.MAIN_HAND, out);
             } else if(!player.addItemStackToInventory(out)) player.dropItem(out, false, false);
         }
     }
-	
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public EnumBlockRenderType getRenderType(IBlockState state)
+    public BlockRenderType getRenderType(BlockState state)
     {
-        return EnumBlockRenderType.MODEL;
+        return BlockRenderType.MODEL;
     }
-    
-    @Nonnull
-	@Override
-    @SideOnly(Side.CLIENT)
-    public BlockRenderLayer getRenderLayer()
-    {
-        return BlockRenderLayer.CUTOUT;
-    }
-    
+
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean isFullCube(IBlockState state)
+    public boolean propagatesSkylightDown(BlockState state, IBlockReader reader, BlockPos pos)
     {
-        return false;
+        return true;
     }
-    
+
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean isOpaqueCube(IBlockState state)
+    public boolean hasTileEntity(BlockState state)
     {
-        return false;
+        return true;
     }
-    
+
     @Nullable
     @Override
-    public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
+    public TileEntity createTileEntity(BlockState state, IBlockReader world)
     {
-        return new TileEntityCrate(initCap, maxCap);
+        return new CrateTileEntity(initCap, maxCap);
     }
-    
+
     @Override
-    public void onBlockPlacedBy(World worldIn, BlockPos pos, IBlockState state, EntityLivingBase placer, ItemStack stack)
+    public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack)
     {
         super.onBlockPlacedBy(worldIn, pos, state, placer, stack);
         if(worldIn.isRemote) return;
         TileEntity tile = worldIn.getTileEntity(pos);
-        if(tile instanceof TileEntityCrate) ((TileEntityCrate)tile).onCrateChanged();
+        if(tile instanceof CrateTileEntity) ((CrateTileEntity)tile).onCrateChanged();
     }
-    
+
+    @Nullable
+    @Override
+    public BlockState getStateForPlacement(BlockItemUseContext context)
+    {
+        return this.getDefaultState().with(FACING, context.getPlacementHorizontalFacing().getOpposite());
+    }
+
     @Nonnull
     @Override
-    public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, @Nonnull EntityLivingBase placer, @Nonnull EnumHand hand)
+    protected void fillStateContainer(StateContainer.Builder<Block, BlockState> builder)
     {
-        return this.getDefaultState().withProperty(FACING, EnumFacing.getDirectionFromEntityLiving(pos, placer).getOpposite());
+        builder.add(FACING);
     }
-    
-    @Override
-    public int getMetaFromState(IBlockState state)
-    {
-        return (state.getValue(FACING)).getIndex();
-    }
-    
-    @Nonnull
-    @Override
-    @SuppressWarnings("deprecation")
-    public IBlockState getStateFromMeta(int meta)
-    {
-        return this.getDefaultState().withProperty(FACING, EnumFacing.byIndex(meta & 7));
-    }
-    
-    @Nonnull
-    @Override
-    protected BlockStateContainer createBlockState()
-    {
-        return new BlockStateContainer(this, FACING);
-    }
-    
+
     // =v= DROP MODIFICATIONS =v=
-    
-    public void dropBlockAsItemWithChance(World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune)
+
+    public void dropBlockAsItemWithChance(World worldIn, @Nonnull BlockPos pos, @Nonnull BlockState state, float chance, int fortune)
     {
     }
-    
-    public void onBlockHarvested(World worldIn, BlockPos pos, IBlockState state, EntityPlayer player)
+
+    @Override
+    public void onBlockHarvested(World worldIn, BlockPos pos, BlockState state, PlayerEntity player)
     {
         TileEntity tile = worldIn.getTileEntity(pos);
-        
-        if(tile instanceof TileEntityCrate)
+
+        if(tile instanceof CrateTileEntity)
         {
-            ((TileEntityCrate)tile).setCreativeBroken(player.capabilities.isCreativeMode);
+            ((CrateTileEntity)tile).setCreativeBroken(player.abilities.isCreativeMode);
         }
+        super.onBlockHarvested(worldIn, pos, state, player);
     }
-    
-    public void breakBlock(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state)
+
+    @Override
+    public void onReplaced(BlockState state, World worldIn, BlockPos pos, BlockState newState, boolean isMoving)
     {
         TileEntity tileentity = worldIn.getTileEntity(pos);
 
-        if (tileentity instanceof TileEntityCrate && !((TileEntityCrate)tileentity).isCreativeBroken())
+        if (tileentity instanceof CrateTileEntity && !((CrateTileEntity)tileentity).isCreativeBroken())
         {
-            TileEntityCrate tileBarrel = (TileEntityCrate)tileentity;
+            CrateTileEntity tileBarrel = (CrateTileEntity)tileentity;
             ItemStack stack = new ItemStack(Item.getItemFromBlock(this));
-            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
-            ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+            ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+            assert tileCap != null;
             assert itemCap != null;
             itemCap.copyContainer(tileCap);
-            
+
             spawnAsEntity(worldIn, pos, stack);
         }
 
-        super.breakBlock(worldIn, pos, state);
+        super.onReplaced(state, worldIn, pos, newState, isMoving);
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public ItemStack getItem(World worldIn, BlockPos pos, @Nonnull IBlockState state)
+    public ItemStack getItem(IBlockReader worldIn, BlockPos pos, @Nonnull BlockState state)
     {
         ItemStack stack = super.getItem(worldIn, pos, state);
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
-        
-        if(tileBarrel instanceof TileEntityCrate)
+
+        if(tileBarrel instanceof CrateTileEntity)
         {
-            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
-            ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+            ICrate itemCap = stack.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+            assert tileCap != null;
             assert itemCap != null;
             itemCap.copyContainer(tileCap);
         }
-        
+
         return stack;
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withRotation(@Nonnull IBlockState state, Rotation rot)
+    public BlockState rotate(@Nonnull BlockState state, Rotation rot)
     {
-        return state.withProperty(FACING, rot.rotate(state.getValue(FACING)));
+        return state.with(FACING, rot.rotate(state.get(FACING)));
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withMirror(@Nonnull IBlockState state, Mirror mirrorIn)
+    public BlockState mirror(@Nonnull BlockState state, Mirror mirrorIn)
     {
-        return state.withRotation(mirrorIn.toRotation(state.getValue(FACING)));
+        return state.rotate(mirrorIn.toRotation(state.get(FACING)));
     }
-    
-    @Override
-    public boolean rotateBlock(World world, @Nonnull BlockPos pos, @Nonnull EnumFacing axis)
-    {
-        if(world.isRemote) return super.rotateBlock(world, pos, axis);
-        
-        TileEntity tile = world.getTileEntity(pos);
-        boolean changed = super.rotateBlock(world, pos, axis);
-        TileEntity nTile = world.getTileEntity(pos);
-        
-        if(changed && tile instanceof TileEntityCrate && nTile instanceof TileEntityCrate)
-        {
-            //noinspection ConstantConditions
-            nTile.getCapability(BdsmCapabilies.CRATE_CAP, null).copyContainer(tile.getCapability(BdsmCapabilies.CRATE_CAP, null));
-            ((TileEntityCrate)nTile).onCrateChanged();
-        }
-        
-        return changed;
-    }
-    
+
+//    @Override
+//    public boolean rotateBlock(World world, @Nonnull BlockPos pos, @Nonnull Direction axis)
+//    {
+//        if(world.isRemote) return super.rotate(world, pos, axis);
+//
+//        TileEntity tile = world.getTileEntity(pos);
+//        boolean changed = super.rotate(world, pos, axis);
+//        TileEntity nTile = world.getTileEntity(pos);
+//
+//        if(changed && tile instanceof CrateTileEntity && nTile instanceof CrateTileEntity)
+//        {
+//            //noinspection ConstantConditions
+//            ICrate tileCap = tile.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+//            ICrate nCap = nTile.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
+//            assert tileCap != null;
+//            assert nCap != null;
+//
+//            nCap.copyContainer(tileCap);
+//            ((CrateTileEntity)nTile).onCrateChanged();
+//        }
+//
+//        return changed;
+//    }
+
     @Override
     @Deprecated
     @SuppressWarnings("deprecation")
-    public boolean hasComparatorInputOverride(IBlockState state)
+    public boolean hasComparatorInputOverride(BlockState state)
     {
         return true;
     }
-    
+
     @Override
     @Deprecated
     @SuppressWarnings("deprecation")
-    public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
+    public int getComparatorInputOverride(BlockState blockState, World worldIn, BlockPos pos)
     {
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
-        
-        if(tileBarrel instanceof TileEntityCrate)
+
+        if(tileBarrel instanceof CrateTileEntity)
         {
-            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null);
+            ICrate tileCap = tileBarrel.getCapability(BdsmCapabilies.CRATE_CAP, null).orElse(null);
             assert tileCap != null;
             long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
             max *= tileCap.getRefItem().getMaxStackSize();
             double fill = tileCap.getCount() / (double)max;
             return MathHelper.floor(fill * 14D) + (tileCap.getCount() > 0 ? 1 : 0);
         }
-        
+
         return 0;
     }
-    
+
     @Override
-    public boolean canCreatureSpawn(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, net.minecraft.entity.EntityLiving.SpawnPlacementType type)
+    public boolean canCreatureSpawn(BlockState state, IBlockReader world, BlockPos pos, PlacementType type, EntityType<?> entityType)
     {
         return true;
     }

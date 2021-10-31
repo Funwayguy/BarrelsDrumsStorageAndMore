@@ -1,0 +1,17 @@
+newmtl A
+map_Kd bdsandm:blocks/metal_crate
+forge_TintIndex 0
+
+newmtl B
+map_Kd bdsandm:blocks/metal_crate_detail_0
+forge_TintIndex 1
+
+newmtl C
+forge_TintIndex 2
+
+newmtl D
+forge_TintIndex 3
+
+Ka 0.000000 0.000000 0.000000
+Kd 0.8 0.8 0.8
+d 1

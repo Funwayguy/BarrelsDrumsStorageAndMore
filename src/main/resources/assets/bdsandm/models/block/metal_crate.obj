@@ -1,4 +1,4 @@
-mtllib mat4.mtl
+mtllib metal_crate.mtl
 o Cube
 v 0.900000 1.000000 0.100007
 v 0.899986 1.000000 0.900000

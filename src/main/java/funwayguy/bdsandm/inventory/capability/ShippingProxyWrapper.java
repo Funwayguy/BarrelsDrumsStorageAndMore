@@ -1,6 +1,6 @@
 package funwayguy.bdsandm.inventory.capability;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityShipping;
+import funwayguy.bdsandm.blocks.tiles.ShippingTileEntity;
 import funwayguy.bdsandm.inventory.InventoryShipping;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.IInventoryChangedListener;
@@ -11,13 +11,13 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
-import net.minecraftforge.fluids.capability.IFluidTankProperties;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Iterator;
+import java.util.TreeSet;
 
 public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnergyStorage, IInventoryChangedListener
 {
@@ -29,11 +29,11 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
     
     private final TreeSet<ProxyEntry<IEnergyStorage>> energyItems = new TreeSet<>();
     
-    public ShippingProxyWrapper(TileEntityShipping tileShip, InventoryShipping invo)
+    public ShippingProxyWrapper(ShippingTileEntity tileShip, InventoryShipping invo)
     {
         this.shipInvo = invo;
-        this.shipInvo.addInventoryChangeListener(this);
-        this.shipInvo.addInventoryChangeListener(tileShip);
+        this.shipInvo.addListener(this);
+        this.shipInvo.addListener(tileShip);
     }
     
     private boolean skipRefresh = false;
@@ -62,23 +62,23 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
                 continue;
             }
             
-            if(stack.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null))
+            if(stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent())
             {
-                IItemHandler itemHandler = stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
+                IItemHandler itemHandler = stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).orElse(null);
                 assert itemHandler != null;
                 invoItems.add(new ProxyEntry<>(i, itemHandler));
             }
             
-            if(stack.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null))
+            if(stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).isPresent())
             {
-                IFluidHandlerItem fluidHandlerItem = stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
+                IFluidHandlerItem fluidHandlerItem = stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
                 assert fluidHandlerItem != null;
                 fluidItems.add(new ProxyEntry<>(i, fluidHandlerItem));
             }
             
-            if(stack.hasCapability(CapabilityEnergy.ENERGY, null))
+            if(stack.getCapability(CapabilityEnergy.ENERGY, null).isPresent())
             {
-                IEnergyStorage energyStorage = stack.getCapability(CapabilityEnergy.ENERGY, null);
+                IEnergyStorage energyStorage = stack.getCapability(CapabilityEnergy.ENERGY, null).orElse(null);
                 assert energyStorage != null;
                 energyItems.add(new ProxyEntry<>(i, energyStorage));
             }
@@ -186,35 +186,43 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
         
         return false;
     }
-    
+
     @Override
-    public IFluidTankProperties[] getTankProperties()
-    {
-        List<IFluidTankProperties> tanks = new ArrayList<>();
-        
-        for(ProxyEntry<IFluidHandlerItem> eStore : fluidItems)
-        {
-            Collections.addAll(tanks, eStore.handler.getTankProperties());
-        }
-        
-        return tanks.toArray(new IFluidTankProperties[0]);
+    public int getTanks() {
+        return 0;
     }
-    
+
+    @Nonnull
     @Override
-    public int fill(FluidStack resource, boolean doFill)
+    public FluidStack getFluidInTank(int tank) {
+        return null;
+    }
+
+    @Override
+    public int getTankCapacity(int tank) {
+        return 0;
+    }
+
+    @Override
+    public boolean isFluidValid(int tank, @Nonnull FluidStack stack) {
+        return false;
+    }
+
+    @Override
+    public int fill(FluidStack resource, FluidAction doFill)
     {
         FluidStack remaining = resource.copy();
         
         Iterator<ProxyEntry<IFluidHandlerItem>> eIter = fluidItems.iterator();
         
-        while(eIter.hasNext() && remaining.amount > 0)
+        while(eIter.hasNext() && remaining.getAmount() > 0)
         {
             ProxyEntry<IFluidHandlerItem> eStore = eIter.next();
             
             int tmp = eStore.handler.fill(remaining, doFill);
-            remaining.amount -= tmp;
+            remaining.setAmount(remaining.getAmount() - tmp);
             
-            if(doFill && tmp > 0)
+            if(doFill.execute() && tmp > 0)
             {
                 this.shipInvo.setSlotWithoutNotice(eStore.slot, eStore.handler.getContainer());
             }
@@ -222,23 +230,23 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
         
         this.markDirty();
         
-        return resource.amount - remaining.amount;
+        return resource.getAmount() - remaining.getAmount();
     }
     
     @Nullable
     @Override
-    public FluidStack drain(FluidStack resource, boolean doDrain)
+    public FluidStack drain(FluidStack resource, FluidAction doDrain)
     {
         FluidStack requesting = resource.copy();
         FluidStack pulled = null;
         
         Iterator<ProxyEntry<IFluidHandlerItem>> eIter = fluidItems.iterator();
         
-        while(eIter.hasNext() && requesting.amount > 0)
+        while(eIter.hasNext() && requesting.getAmount() > 0)
         {
             ProxyEntry<IFluidHandlerItem> eStore = eIter.next();
             
-            FluidStack tmp = eStore.handler.drain(requesting, false);
+            FluidStack tmp = eStore.handler.drain(requesting, FluidAction.SIMULATE);
             
             if(tmp != null && tmp.isFluidEqual(requesting))
             {
@@ -249,12 +257,12 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
                     pulled = tmp;
                 } else
                 {
-                    pulled.amount += tmp.amount;
+                    pulled.setAmount(pulled.getAmount() + tmp.getAmount());
                 }
-                
-                requesting.amount -= tmp.amount;
-                
-                if(doDrain)
+
+                requesting.setAmount(requesting.getAmount() - tmp.getAmount());
+
+                if(doDrain.execute())
                 {
                     this.shipInvo.setSlotWithoutNotice(eStore.slot, eStore.handler.getContainer());
                 }
@@ -268,7 +276,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
     
     @Nullable
     @Override
-    public FluidStack drain(int maxDrain, boolean doDrain)
+    public FluidStack drain(int maxDrain, FluidAction doDrain)
     {
         int requesting = maxDrain;
         FluidStack pulled = null;
@@ -279,7 +287,7 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
         {
             ProxyEntry<IFluidHandlerItem> eStore = eIter.next();
             
-            FluidStack tmp = eStore.handler.drain(requesting, false);
+            FluidStack tmp = eStore.handler.drain(requesting, FluidAction.SIMULATE);
             
             if(tmp != null && (pulled == null || tmp.isFluidEqual(pulled)))
             {
@@ -290,12 +298,12 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
                     pulled = tmp;
                 } else
                 {
-                    pulled.amount += tmp.amount;
+                    pulled.setAmount(pulled.getAmount() + tmp.getAmount());
                 }
                 
-                requesting -= tmp.amount;
-                
-                if(doDrain)
+                requesting -= tmp.getAmount();
+
+                if(doDrain.execute())
                 {
                     this.shipInvo.setSlotWithoutNotice(eStore.slot, eStore.handler.getContainer());
                 }
@@ -398,7 +406,12 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
         
         return 0;
     }
-    
+
+    @Override
+    public boolean isItemValid(int slot, @Nonnull ItemStack stack) {
+        return false;
+    }
+
     private class ProxyEntry<T> implements Comparable<ProxyEntry<T>>
     {
         private final int slot;

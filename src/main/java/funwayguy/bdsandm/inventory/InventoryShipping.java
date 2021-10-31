@@ -1,29 +1,30 @@
 package funwayguy.bdsandm.inventory;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityShipping;
+import funwayguy.bdsandm.blocks.tiles.ShippingTileEntity;
 import funwayguy.bdsandm.core.BDSM;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.InventoryBasic;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
 
 import javax.annotation.Nonnull;
 
-public class InventoryShipping extends InventoryBasic
+public class InventoryShipping extends Inventory
 {
-    private final TileEntityShipping tile;
+    private final ShippingTileEntity tile;
     
-    public InventoryShipping(TileEntityShipping tile)
+    public InventoryShipping(ShippingTileEntity tile)
     {
-        super(BDSM.MOD_ID + ".shipping.gui", false, 27);
+        super(27);
         this.tile = tile;
     }
     
-    public boolean isUsableByPlayer(EntityPlayer player)
+    public boolean isUsableByPlayer(PlayerEntity player)
     {
-        return player.getDistanceSq(tile.getPos()) < 256;
+        return player.getDistanceSq(Vector3d.copyCentered(tile.getPos())) < 256;
     }
     
     @Override
@@ -35,7 +36,9 @@ public class InventoryShipping extends InventoryBasic
     @Override
     public boolean isItemValidForSlot(int index, ItemStack stack)
     {
-        return stack.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null) || stack.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null) || stack.hasCapability(CapabilityEnergy.ENERGY, null);
+        return stack.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent() ||
+                stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).isPresent() ||
+                stack.getCapability(CapabilityEnergy.ENERGY, null).isPresent();
     }
     
     @Nonnull

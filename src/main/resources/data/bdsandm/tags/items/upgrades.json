@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+	"bdsandm:upgrade_64",
+	"bdsandm:upgrade_256",
+	"bdsandm:upgrade_1024",
+	"bdsandm:upgrade_4096",
+	"bdsandm:upgrade_creative",
+	"bdsandm:upgrade_ore",
+	"bdsandm:upgrade_void",
+	"bdsandm:upgrade_uninstall"
+  ]
+}

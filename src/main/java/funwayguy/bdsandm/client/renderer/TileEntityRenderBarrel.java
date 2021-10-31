@@ -1,245 +1,268 @@
 package funwayguy.bdsandm.client.renderer;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityBarrel;
+import com.mojang.blaze3d.matrix.MatrixStack;
+import com.mojang.blaze3d.platform.GlStateManager.DestFactor;
+import com.mojang.blaze3d.platform.GlStateManager.SourceFactor;
+import com.mojang.blaze3d.systems.RenderSystem;
+import funwayguy.bdsandm.blocks.tiles.BarrelTileEntity;
 import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.core.BDSMTags;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.CapabilityBarrel;
 import funwayguy.bdsandm.inventory.capability.IBarrel;
+import funwayguy.bdsandm.items.UpgradeItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.block.model.ItemCameraTransforms.TransformType;
+import net.minecraft.client.renderer.model.ItemCameraTransforms.TransformType;
+import net.minecraft.client.renderer.texture.AtlasTexture;
+import net.minecraft.client.renderer.texture.Texture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
+import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.inventory.container.PlayerContainer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.state.properties.BlockStateProperties;
+import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraft.util.math.vector.Vector3f;
+import net.minecraftforge.fluids.FluidAttributes;
+import net.minecraftforge.fml.client.gui.GuiUtils;
 
-public class TileEntityRenderBarrel extends TileEntitySpecialRenderer<TileEntityBarrel>
+public class TileEntityRenderBarrel extends TileEntityRenderer<BarrelTileEntity>
 {
     private static final ResourceLocation ICON_TEX = new ResourceLocation(BDSM.MOD_ID, "textures/gui/color_sliders.png");
-    
-    @Override
-    public void render(TileEntityBarrel te, double x, double y, double z, float partialTicks, int destroyStage, float alpha)
+
+    public TileEntityRenderBarrel(TileEntityRendererDispatcher rendererDispatcherIn)
     {
-        super.render(te, x, y, z, partialTicks, destroyStage, alpha);
-        
-        IBarrel bCap = te.getCapability(BdsmCapabilies.BARREL_CAP, null);
-        
+        super(rendererDispatcherIn);
+    }
+
+    @Override
+    public void render(BarrelTileEntity te, float partialTicks, MatrixStack matrixStackIn, IRenderTypeBuffer bufferIn, int combinedLightIn, int combinedOverlayIn)
+    {
+        IBarrel bCap = te.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
+
         if(!(bCap instanceof CapabilityBarrel)) return;
-        
+
         CapabilityBarrel barrel = (CapabilityBarrel)bCap;
-        Minecraft mc = Minecraft.getMinecraft();
+        Minecraft mc = Minecraft.getInstance();
         FontRenderer font = mc.fontRenderer;
-        
-        if(this.rendererDispatcher.cameraHitResult != null && te.getPos().equals(this.rendererDispatcher.cameraHitResult.getBlockPos()))
+        Direction facing = te.getBlockState().get(BlockStateProperties.FACING);
+
+        if(this.renderDispatcher.cameraHitResult != null && te.getPos().equals(this.renderDispatcher.cameraHitResult.getHitVec()))
         {
             ItemStack item = mc.player.getHeldItemMainhand();
-            
-            if(!item.isEmpty() && item.getItem() == BDSM.itemUpgrade && item.getItemDamage() < 5)
+
+            if(!item.isEmpty() && item.getItem().isIn(BDSMTags.UPGRADES) && item.getItem() instanceof UpgradeItem)
             {
                 // === RENDER TEXT ===
-                
-                GlStateManager.pushMatrix();
-                
-                GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-                rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-                GlStateManager.translate(0D, 0.3D, 0.5D);
-                GlStateManager.scale(0.01F, 0.01F, 1F);
-                GlStateManager.rotate(180F, 1F, 0F, 0F);
-                
-                GlStateManager.disableLighting();
-                
+
+                matrixStackIn.push();
+                RenderSystem.pushMatrix();
+
+                rotateSide(matrixStackIn, facing);
+                matrixStackIn.translate(0D, 0.3D, 0.5D);
+                matrixStackIn.scale(0.01F, 0.01F, 1F);
+                matrixStackIn.rotate(Vector3f.XP.rotationDegrees(180F));
+
+                RenderSystem.disableLighting();
+
                 String s = "" + barrel.getStackCap();
-                font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-                GlStateManager.translate(0F, 0F, 0.01F);
-                font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-                GlStateManager.translate(0F, 0F, -0.01F);
-                
-                GlStateManager.translate(0F, font.FONT_HEIGHT, 0F);
+                font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+                matrixStackIn.translate(0F, 0F, 0.01F);
+                font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+                matrixStackIn.translate(0F, 0F, -0.01F);
+
+                matrixStackIn.translate(0F, font.FONT_HEIGHT, 0F);
                 s = "/ " + barrel.getUpgradeCap();
-                font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-                GlStateManager.translate(0F, 0F, 0.01F);
-                font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-                GlStateManager.translate(0F, 0F, -0.01F);
-                
-                GlStateManager.enableLighting();
-                
-                GlStateManager.popMatrix();
+                font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+                matrixStackIn.translate(0F, 0F, 0.01F);
+                font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+                matrixStackIn.translate(0F, 0F, -0.01F);
+
+                RenderSystem.enableLighting();
+
+                RenderSystem.popMatrix();
+                matrixStackIn.pop();
                 return;
             }
         }
-        
+
         if(!barrel.getRefItem().isEmpty())
         {
             // === RENDER TEXT ===
-            
-            GlStateManager.pushMatrix();
-            
-            GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-            rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-            GlStateManager.translate(0D, 0.3D, 0.5D);
-            GlStateManager.scale(0.01F, 0.01F, 1F);
-            GlStateManager.rotate(180F, 1F, 0F, 0F);
-            
-            GlStateManager.disableLighting();
-            
+
+            matrixStackIn.push();
+            RenderSystem.pushMatrix();
+
+            rotateSide(matrixStackIn, facing);
+            matrixStackIn.translate(0D, 0.3D, 0.5D);
+            matrixStackIn.scale(0.01F, 0.01F, 1F);
+            matrixStackIn.rotate(Vector3f.XP.rotationDegrees(180F));
+
+            RenderSystem.disableLighting();
+
             String s = "" + barrel.getRefItem().getMaxStackSize();
             s += "x" + (barrel.getCount() / barrel.getRefItem().getMaxStackSize());
-            font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-            GlStateManager.translate(0F, 0F, 0.01F);
-            font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-            GlStateManager.translate(0F, 0F, -0.01F);
-            
-            GlStateManager.translate(0F, font.FONT_HEIGHT, 0F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+            matrixStackIn.translate(0F, 0F, 0.01F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+            matrixStackIn.translate(0F, 0F, -0.01F);
+
+            matrixStackIn.translate(0F, font.FONT_HEIGHT, 0F);
             s = "+" + (barrel.getCount() % barrel.getRefItem().getMaxStackSize());
-            font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-            GlStateManager.translate(0F, 0F, 0.01F);
-            font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-            
-            GlStateManager.enableLighting();
-            
-            GlStateManager.popMatrix();
-            
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+            matrixStackIn.translate(0F, 0F, 0.01F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+
+            RenderSystem.enableLighting();
+
+            RenderSystem.popMatrix();
+
             // === RENDER ITEM ===
-            
-            GlStateManager.pushMatrix();
-            GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-            rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-            GlStateManager.translate(0D, - 0.1D, 0.5D);
-            GlStateManager.scale(0.4F, 0.4F, 0.01F);
-            
-            mc.getRenderItem().renderItem(barrel.getRefItem(), TransformType.GUI);
-            
-            GlStateManager.popMatrix();
+
+            RenderSystem.pushMatrix();
+            rotateSide(matrixStackIn, facing);
+            matrixStackIn.translate(0D, - 0.1D, 0.5D);
+            matrixStackIn.scale(0.4F, 0.4F, 0.01F);
+
+            Minecraft.getInstance().getItemRenderer().renderItem(barrel.getRefItem(), TransformType.GUI, combinedLightIn, combinedOverlayIn, matrixStackIn, bufferIn);
+
+            RenderSystem.popMatrix();
+            matrixStackIn.pop();
         } else if(barrel.getRefFluid() != null)
         {
             // === RENDER TEXT ===
-            
-            GlStateManager.pushMatrix();
-            
-            GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-            rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-            GlStateManager.translate(0D, 0.3D, 0.5D);
-            GlStateManager.scale(0.01F, 0.01F, 1F);
-            GlStateManager.rotate(180F, 1F, 0F, 0F);
-            
-            GlStateManager.disableLighting();
-            
+
+            matrixStackIn.push();
+            RenderSystem.pushMatrix();
+
+            rotateSide(matrixStackIn, facing);
+            matrixStackIn.translate(0D, 0.3D, 0.5D);
+            matrixStackIn.scale(0.01F, 0.01F, 1F);
+            matrixStackIn.rotate(Vector3f.XP.rotationDegrees(180F));
+
+            RenderSystem.disableLighting();
+
             String s = "1B";
             s += "x" + (barrel.getCount() / 1000);
-            font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-            GlStateManager.translate(0F, 0F, 0.01F);
-            font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-            GlStateManager.translate(0F, 0F, -0.01F);
-            
-            GlStateManager.translate(0F, font.FONT_HEIGHT, 0F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+            matrixStackIn.translate(0F, 0F, 0.01F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+            matrixStackIn.translate(0F, 0F, -0.01F);
+
+            matrixStackIn.translate(0F, font.FONT_HEIGHT, 0F);
             s = "+" + (barrel.getCount() % 1000) + "mB";
-            font.drawString(s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
-            GlStateManager.translate(0F, 0F, 0.01F);
-            font.drawString(s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
-            
-            GlStateManager.enableLighting();
-            
-            GlStateManager.popMatrix();
-            
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2, 0, 0xFFFFFFFF);
+            matrixStackIn.translate(0F, 0F, 0.01F);
+            font.drawString(matrixStackIn, s, -font.getStringWidth(s) / 2 + 1, 1, colorToShadow(0xFFFFFFFF));
+
+            RenderSystem.enableLighting();
+
+            RenderSystem.popMatrix();
+            matrixStackIn.pop();
+
             // === RENDER FLUID ===
-            
-            if(barrel.getRefFluid().getFluid().getStill(barrel.getRefFluid()) != null)
+
+            FluidAttributes refAttributes = barrel.getRefFluid().getFluid().getAttributes();
+            if(refAttributes.getStillTexture(barrel.getRefFluid()) != null)
             {
-                GlStateManager.pushMatrix();
-                GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-                rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-                GlStateManager.scale(0.025F, 0.025F, 1F);
-                GlStateManager.rotate(180F, 1F, 0F, 0F);
-                GlStateManager.translate(-8D, -5D, -0.5D);
-                
-                GlStateManager.disableLighting();
-                GlStateManager.enableBlend();
-                GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-                GlStateManager.color(1F, 1F, 1F, 1F);
-                
-				try
-				{
-			        mc.renderEngine.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
-					TextureAtlasSprite fluidTx = mc.getTextureMapBlocks().getAtlasSprite(barrel.getRefFluid().getFluid().getStill(barrel.getRefFluid()).toString());
-					
-					int color = barrel.getRefFluid().getFluid().getColor(barrel.getRefFluid());
-					int b = color & 255;
-					int g = (color >> 8) & 255;
-					int r = (color >> 16) & 255;
-					int a = (color >> 24) & 255;
-					GlStateManager.color(r/255F, g/255F, b/255F, a/255F);
-					
+                matrixStackIn.push();
+                RenderSystem.pushMatrix();
+                rotateSide(matrixStackIn, facing);
+                matrixStackIn.scale(0.025F, 0.025F, 1F);
+                matrixStackIn.rotate(Vector3f.XP.rotationDegrees(180F));
+                matrixStackIn.translate(-8D, -5D, -0.5D);
+
+                RenderSystem.disableLighting();
+                RenderSystem.enableBlend();
+                RenderSystem.blendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
+                RenderSystem.color4f(1F, 1F, 1F, 1F);
+
+                try
+                {
+                    mc.getTextureManager().bindTexture(AtlasTexture.LOCATION_BLOCKS_TEXTURE);
+                    Texture texture = Minecraft.getInstance().getTextureManager().getTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
+                    TextureAtlasSprite fluidTx = ((AtlasTexture) texture).getSprite(refAttributes.getStillTexture(barrel.getRefFluid()));
+
+                    int color = refAttributes.getColor(barrel.getRefFluid());
+                    int b = color & 255;
+                    int g = (color >> 8) & 255;
+                    int r = (color >> 16) & 255;
+                    int a = (color >> 24) & 255;
+                    RenderSystem.color4f(r/255F, g/255F, b/255F, a/255F);
+
                     Tessellator tessellator = Tessellator.getInstance();
                     BufferBuilder vertexbuffer = tessellator.getBuffer();
                     vertexbuffer.begin(7, DefaultVertexFormats.POSITION_TEX);
-                    vertexbuffer.pos(0, 16, 0).tex((double)fluidTx.getMinU(), (double)fluidTx.getMaxV()).endVertex();
-                    vertexbuffer.pos(16, 16, 0).tex((double)fluidTx.getMaxU(), (double)fluidTx.getMaxV()).endVertex();
-                    vertexbuffer.pos(16, 0, 0).tex((double)fluidTx.getMaxU(), (double)fluidTx.getMinV()).endVertex();
-                    vertexbuffer.pos(0, 0, 0).tex((double)fluidTx.getMinU(), (double)fluidTx.getMinV()).endVertex();
+                    vertexbuffer.pos(0, 16, 0).tex(fluidTx.getMinU(), fluidTx.getMaxV()).endVertex();
+                    vertexbuffer.pos(16, 16, 0).tex(fluidTx.getMaxU(), fluidTx.getMaxV()).endVertex();
+                    vertexbuffer.pos(16, 0, 0).tex(fluidTx.getMaxU(), fluidTx.getMinV()).endVertex();
+                    vertexbuffer.pos(0, 0, 0).tex(fluidTx.getMinU(), fluidTx.getMinV()).endVertex();
                     tessellator.draw();
-				} catch(Exception e)
+                } catch(Exception e)
                 {
-                    BDSM.logger.error("Error rendering barrel fluid", e);
+                    BDSM.LOGGER.error("Error rendering barrel fluid", e);
                 }
-                
-                GlStateManager.enableLighting();
-                GlStateManager.popMatrix();
+
+                RenderSystem.enableLighting();
+                RenderSystem.popMatrix();
+                matrixStackIn.pop();
             }
         }
-        
-        GlStateManager.pushMatrix();
-        
-        GlStateManager.translate(x + 0.5D, y + 0.5D, z + 0.5D);
-        rotateSide(EnumFacing.byIndex(te.getBlockMetadata() & 7));
-        GlStateManager.translate(0D, 0D, 0.5D);
-        GlStateManager.scale(0.01F, 0.01F, 1F);
-        GlStateManager.rotate(180F, 1F, 0F, 0F);
-        
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-        
-        GlStateManager.disableLighting();
-        GlStateManager.enableTexture2D();
-        mc.renderEngine.bindTexture(ICON_TEX);
-        GlStateManager.color(1F, 1F, 1F, 1F);
-        
-        if(barrel.isLocked()) GuiUtils.drawTexturedModalRect(-36, -24, 0, 0, 16, 16, 0);
-        if(barrel.isOreDict()) GuiUtils.drawTexturedModalRect(-36, -8, 32, 0, 16, 16, 0);
-        if(barrel.voidOverflow()) GuiUtils.drawTexturedModalRect(-36,8, 16, 0, 16, 16, 0);
-        
-        GlStateManager.popMatrix();
+
+        matrixStackIn.push();
+        RenderSystem.pushMatrix();
+
+        rotateSide(matrixStackIn, facing);
+        matrixStackIn.translate(0D, 0D, 0.5D);
+        matrixStackIn.scale(0.01F, 0.01F, 1F);
+        matrixStackIn.rotate(Vector3f.XP.rotationDegrees(180F));
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(SourceFactor.SRC_ALPHA, DestFactor.ONE_MINUS_SRC_ALPHA, SourceFactor.ONE, DestFactor.ZERO);
+
+        RenderSystem.disableLighting();
+        RenderSystem.enableTexture();
+        mc.getTextureManager().bindTexture(ICON_TEX);
+
+        RenderSystem.color4f(1F, 1F, 1F, 1F);
+
+        if(barrel.isLocked()) GuiUtils.drawTexturedModalRect(matrixStackIn, -36, -24, 0, 0, 16, 16, 0);
+        if(barrel.isOreDict()) GuiUtils.drawTexturedModalRect(matrixStackIn, -36, -8, 32, 0, 16, 16, 0);
+        if(barrel.voidOverflow()) GuiUtils.drawTexturedModalRect(matrixStackIn, -36,8, 16, 0, 16, 16, 0);
+
+        RenderSystem.popMatrix();
+        matrixStackIn.pop();
     }
     
-    private void rotateSide(EnumFacing facing)
+    private void rotateSide(MatrixStack matrixStackIn, Direction facing)
     {
         switch(facing)
         {
             case UP:
-                GlStateManager.rotate(180F, 0F, 1F, 0F);
-                GlStateManager.rotate(90F, 1F, 0F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(180F));
+                matrixStackIn.rotate(Vector3f.XP.rotationDegrees(90F));
                 break;
             case DOWN:
-                GlStateManager.rotate(180F, 0F, 1F, 0F);
-                GlStateManager.rotate(270F, 1F, 0F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(180F));
+                matrixStackIn.rotate(Vector3f.XP.rotationDegrees(270F));
                 break;
             case NORTH:
-                GlStateManager.rotate(0F, 0F, 1F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(0F));
                 break;
             case SOUTH:
-                GlStateManager.rotate(180F, 0F, 1F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(180F));
                 break;
             case WEST:
-                GlStateManager.rotate(90F, 0F, 1F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(90F));
                 break;
             case EAST:
-                GlStateManager.rotate(270F, 0F, 1F, 0F);
+                matrixStackIn.rotate(Vector3f.YP.rotationDegrees(270F));
                 break;
         }
     }

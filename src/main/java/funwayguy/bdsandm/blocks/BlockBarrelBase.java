@@ -1,75 +1,79 @@
 package funwayguy.bdsandm.blocks;
 
-import funwayguy.bdsandm.blocks.tiles.TileEntityBarrel;
-import funwayguy.bdsandm.core.BDSM;
+import funwayguy.bdsandm.blocks.tiles.BarrelTileEntity;
 import funwayguy.bdsandm.core.BdsmConfig;
 import funwayguy.bdsandm.inventory.capability.BdsmCapabilies;
 import funwayguy.bdsandm.inventory.capability.CapabilityBarrel;
 import funwayguy.bdsandm.inventory.capability.IBarrel;
-import funwayguy.bdsandm.network.PacketBdsm;
-import net.minecraft.block.BlockDirectional;
-import net.minecraft.block.ITileEntityProvider;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.BlockStateContainer;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
+import funwayguy.bdsandm.network.ClientPacketBdsm;
+import funwayguy.bdsandm.network.PacketHandler;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.DirectionalBlock;
+import net.minecraft.entity.EntitySpawnPlacementRegistry.PlacementType;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.*;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Direction;
+import net.minecraft.util.Hand;
+import net.minecraft.util.Mirror;
+import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.fml.network.PacketDistributor;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class BlockBarrelBase extends BlockDirectional implements ITileEntityProvider, IStorageBlock
-{
+public class BlockBarrelBase extends DirectionalBlock implements IStorageBlock {
     private final int initCap;
     private final int maxCap;
     
     @SuppressWarnings("WeakerAccess")
-    protected BlockBarrelBase(Material materialIn, int initCap, int maxCap)
-    {
-        super(materialIn);
-        this.setDefaultState(this.blockState.getBaseState().withProperty(FACING, EnumFacing.NORTH));
-        this.setCreativeTab(BDSM.tabBdsm);
-        
+    protected BlockBarrelBase(Properties properties, int initCap, int maxCap) {
+        super(properties);
+        this.setDefaultState(this.stateContainer.getBaseState().with(FACING, Direction.NORTH));
+
         this.initCap = initCap;
         this.maxCap = maxCap;
     }
-    
+
     @Override
-    public void onPlayerInteract(World world, BlockPos pos, IBlockState state, EnumFacing side, EntityPlayerMP player, EnumHand hand, boolean isHit, boolean altMode, int clickDelay)
+    public void onPlayerInteract(World world, BlockPos pos, BlockState state, Direction side, ServerPlayerEntity player, Hand hand, boolean isHit, boolean altMode, int clickDelay)
     {
-        EnumFacing curFace = state.getValue(FACING);
+        Direction curFace = state.get(FACING);
         if(curFace != side.getOpposite()) return;
-        
+
         TileEntity tile = world.getTileEntity(pos);
-        if(!(tile instanceof TileEntityBarrel)) return;
-        TileEntityBarrel tileBarrel = (TileEntityBarrel)tile;
-        
-        CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null);
+        if(!(tile instanceof BarrelTileEntity)) return;
+        BarrelTileEntity tileBarrel = (BarrelTileEntity)tile;
+
+        CapabilityBarrel barrel = (CapabilityBarrel)tile.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
         if(barrel == null || (!isHit && barrel.installUpgrade(player, player.getHeldItem(hand)))) return;
-        
+
         if(!isHit)
         {
             if(!player.isSneaking())
             {
-                 IFluidHandlerItem container = player.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-                if(barrel.getRefFluid() != null && container != null && container.drain(Integer.MAX_VALUE, false) == null)
+                IFluidHandlerItem container = player.getHeldItem(hand).getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
+                if(!barrel.getRefFluid().isEmpty() && container != null && container.drain(Integer.MAX_VALUE, FluidAction.SIMULATE).isEmpty())
                 {
                     withdrawItem(barrel, player, 0);
                 } else
@@ -84,71 +88,71 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
                 withdrawItem(barrel, player, player.isSneaking() ? 0 : 2);
             } else if(!player.isSneaking())
             {
-                int curClick = tileBarrel.getClickCount(world.getTotalWorldTime(), clickDelay);
+                int curClick = tileBarrel.getClickCount(world.getGameTime(), clickDelay);
                 if(curClick >= 0) withdrawItem(barrel, player, curClick);
             }
         }
     }
-    
+
     @Override
-    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ)
+    public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player, Hand handIn, BlockRayTraceResult hit)
     {
-        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return true;
-    
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setInteger("msgType", 2);
-        tag.setLong("pos", pos.toLong());
-        tag.setBoolean("isHit", false);
-        tag.setBoolean("offHand", hand == EnumHand.OFF_HAND);
-        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
-        
-        return true;
+        if(worldIn.isRemote || !(player instanceof ServerPlayerEntity)) return ActionResultType.SUCCESS;
+
+        CompoundNBT tag = new CompoundNBT();
+        tag.putInt("msgType", 2);
+        tag.putLong("pos", pos.toLong());
+        tag.putBoolean("isHit", false);
+        tag.putBoolean("offHand", handIn == Hand.OFF_HAND);
+        PacketHandler.NETWORK.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity)player), new ClientPacketBdsm(tag));
+
+        return ActionResultType.SUCCESS;
     }
-    
+
     @Override
-    public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn)
+    public void onBlockClicked(BlockState state, World worldIn, BlockPos pos, PlayerEntity player)
     {
-        if(worldIn.isRemote || !(playerIn instanceof EntityPlayerMP)) return;
-    
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setInteger("msgType", 2);
-        tag.setLong("pos", pos.toLong());
-        tag.setBoolean("isHit", true);
-        tag.setBoolean("offHand", false);
-        BDSM.INSTANCE.network.sendTo(new PacketBdsm(tag), (EntityPlayerMP)playerIn);
+        if(worldIn.isRemote || !(player instanceof ServerPlayerEntity)) return;
+
+        CompoundNBT tag = new CompoundNBT();
+        tag.putInt("msgType", 2);
+        tag.putLong("pos", pos.toLong());
+        tag.putBoolean("isHit", true);
+        tag.putBoolean("offHand", false);
+        PacketHandler.NETWORK.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity)player), new ClientPacketBdsm(tag));
     }
-    
-    private void depositItem(CapabilityBarrel barrel, EntityPlayer player, EnumHand hand)
+
+    private void depositItem(CapabilityBarrel barrel, PlayerEntity player, Hand hand)
     {
         ItemStack refItem = barrel.getRefItem();
         FluidStack refFluid = barrel.getRefFluid();
         ItemStack held = player.getHeldItem(hand);
-        IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
-        int maxDrain = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid == null ? 0 : barrel.getCount()));
-        
+        IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
+        int maxDrain = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : (barrel.getStackCap() * 1000 - (refFluid.isEmpty() ? 0 : barrel.getCount()));
+
         if(container != null && refItem.isEmpty() && !held.isEmpty()) // Fill fluid
         {
             FluidStack drainStack;
             
-            if(refFluid == null)
+            if(refFluid.isEmpty())
             {
-                drainStack = container.drain(maxDrain / held.getCount(), false);
+                drainStack = container.drain(maxDrain / held.getCount(), FluidAction.SIMULATE);
             } else
             {
                 drainStack = refFluid.copy();
-                drainStack.amount = maxDrain / held.getCount();
-                drainStack = container.drain(drainStack, false);
+                drainStack.setAmount(maxDrain / held.getCount());
+                drainStack = container.drain(drainStack, FluidAction.SIMULATE);
             }
             
-            if(drainStack != null && drainStack.amount > 0)
+            if(!drainStack.isEmpty() && drainStack.getAmount() > 0)
             {
-                drainStack.amount *= held.getCount();
-                drainStack.amount = barrel.fill(drainStack, true);
+                drainStack.setAmount(drainStack.getAmount() * held.getCount());
+                drainStack.setAmount(barrel.fill(drainStack, FluidAction.EXECUTE));
                 
-                if(!player.capabilities.isCreativeMode && drainStack.amount > 0)
+                if(!player.abilities.isCreativeMode && drainStack.getAmount() > 0)
                 {
-                    drainStack.amount /= held.getCount();
-                    container.drain(drainStack, true);
+                    drainStack.setAmount(drainStack.getAmount() / held.getCount());
+                    container.drain(drainStack, FluidAction.EXECUTE);
                     
                     player.setHeldItem(hand, container.getContainer());
                 }
@@ -157,13 +161,13 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             }
         }
         
-        if(BdsmConfig.multiPurposeBarrel)
+        if(BdsmConfig.COMMON.multiPurposeBarrel.get())
         {
-            if(!held.isEmpty() && (refItem.isEmpty() || barrel.canMergeWith(held) || held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null)))
+            if(!held.isEmpty() && (refItem.isEmpty() || barrel.canMergeWith(held) || held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent()))
             {
-                if(held.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null))
+                if(held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).isPresent())
                 {
-                    IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
+                    IItemHandler heldCrate = held.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null).orElse(null);
                     assert heldCrate != null;
                     
                     for(int s = 0; s < heldCrate.getSlots(); s++)
@@ -207,31 +211,31 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         }
     }
     
-    private void withdrawItem(CapabilityBarrel barrel, EntityPlayer player, int clickCount)
+    private void withdrawItem(CapabilityBarrel barrel, PlayerEntity player, int clickCount)
     {
         ItemStack ref = barrel.getRefItem();
         FluidStack refFluid = barrel.getRefFluid();
-        ItemStack held = player.getHeldItem(EnumHand.MAIN_HAND);
-        IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
+        ItemStack held = player.getHeldItem(Hand.MAIN_HAND);
+        IFluidHandlerItem container = held.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
         int maxFill = barrel.getStackCap() < 0 ? Integer.MAX_VALUE : barrel.getCount();
         if(clickCount <= 0) maxFill = Math.min(1000, maxFill);
         
         if(container != null && refFluid != null && !held.isEmpty() && barrel.getCount() >= held.getCount())
         {
             FluidStack fillStack = refFluid.copy();
-            fillStack.amount = maxFill / held.getCount();
+            fillStack.setAmount(maxFill / held.getCount());
             
-            int testFill = container.fill(fillStack, false); // Doesn't really matter if we overfill here. Just checking capacity and fluid match
+            int testFill = container.fill(fillStack, FluidAction.SIMULATE); // Doesn't really matter if we overfill here. Just checking capacity and fluid match
             
             if(testFill > 0)
             {
-                fillStack.amount = testFill * held.getCount();
-                FluidStack drained = barrel.drain(fillStack, true);
+                fillStack.setAmount(testFill * held.getCount());
+                FluidStack drained = barrel.drain(fillStack, FluidAction.EXECUTE);
                 if(drained != null)
                 {
-                    drained.amount /= held.getCount();
-                    container.fill(drained, true);
-                    player.setHeldItem(EnumHand.MAIN_HAND, container.getContainer());
+                    drained.setAmount(drained.getAmount() / held.getCount());
+                    container.fill(drained, FluidAction.EXECUTE);
+                    player.setHeldItem(Hand.MAIN_HAND, container.getContainer());
                 }
             }
         } else if(!ref.isEmpty())
@@ -239,9 +243,9 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
             int count = clickCount <= 0 ? 1 : ref.getMaxStackSize();
             if(clickCount == 1) count--;
             ItemStack out = barrel.extractItem(0, count, false);
-            if(player.getHeldItem(EnumHand.MAIN_HAND).isEmpty())
+            if(player.getHeldItem(Hand.MAIN_HAND).isEmpty())
             {
-                player.setHeldItem(EnumHand.MAIN_HAND, out);
+                player.setHeldItem(Hand.MAIN_HAND, out);
             } else if(!player.addItemStackToInventory(out)) player.dropItem(out, false, false);
         }
     }
@@ -249,143 +253,120 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public EnumBlockRenderType getRenderType(IBlockState state)
+    public BlockRenderType getRenderType(BlockState state)
     {
-        return EnumBlockRenderType.MODEL;
+        return BlockRenderType.MODEL;
     }
-    
-    @Nonnull
-	@Override
-    @SideOnly(Side.CLIENT)
-    public BlockRenderLayer getRenderLayer()
-    {
-        return BlockRenderLayer.CUTOUT;
-    }
-    
+
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean isFullCube(IBlockState state)
+    public boolean propagatesSkylightDown(BlockState state, IBlockReader reader, BlockPos pos)
     {
-        return false;
+        return true;
     }
-    
+
     @Override
-    @SuppressWarnings("deprecation")
-    public boolean isOpaqueCube(IBlockState state)
+    public boolean hasTileEntity(BlockState state)
     {
-        return false;
+        return true;
     }
-    
+
     @Nullable
     @Override
-    public TileEntity createNewTileEntity(@Nonnull World worldIn, int meta)
+    public TileEntity createTileEntity(BlockState state, IBlockReader world)
     {
-        return new TileEntityBarrel(initCap, maxCap);
+        return new BarrelTileEntity(initCap, maxCap);
     }
     
     @Nonnull
     @Override
-    public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, @Nonnull EntityLivingBase placer, EnumHand hand)
+    public BlockState getStateForPlacement(BlockItemUseContext context)
     {
-        return this.getDefaultState().withProperty(FACING, EnumFacing.getDirectionFromEntityLiving(pos, placer).getOpposite());
-    }
-    
-    @Override
-    public int getMetaFromState(IBlockState state)
-    {
-        return (state.getValue(FACING)).getIndex();
+        return this.getDefaultState().with(FACING, context.getPlacementHorizontalFacing().getOpposite());
     }
     
     @Nonnull
     @Override
-    @SuppressWarnings("deprecation")
-    public IBlockState getStateFromMeta(int meta)
+    protected void fillStateContainer(StateContainer.Builder<Block, BlockState> builder)
     {
-        return this.getDefaultState().withProperty(FACING, EnumFacing.byIndex(meta & 7));
-    }
-    
-    @Nonnull
-    @Override
-    protected BlockStateContainer createBlockState()
-    {
-        return new BlockStateContainer(this, FACING);
+        builder.add(FACING);
     }
     
     // =v= DROP MODIFICATIONS =v=
     
-    @Override
-    public void dropBlockAsItemWithChance(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune)
-    {
-    }
+//    @Override
+//    public void dropBlockAsItemWithChance(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull BlockState state, float chance, int fortune)
+//    {
+//    }
     
-    public void onBlockHarvested(World worldIn, BlockPos pos, IBlockState state, EntityPlayer player)
+    public void onBlockHarvested(World worldIn, BlockPos pos, BlockState state, PlayerEntity player)
     {
         TileEntity tile = worldIn.getTileEntity(pos);
         
-        if(tile instanceof TileEntityBarrel)
+        if(tile instanceof BarrelTileEntity)
         {
-            ((TileEntityBarrel)tile).setCreativeBroken(player.capabilities.isCreativeMode);
+            ((BarrelTileEntity)tile).setCreativeBroken(player.abilities.isCreativeMode);
         }
+        super.onBlockHarvested(worldIn, pos, state, player);
     }
-    
-    public void breakBlock(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state)
+
+    public void onReplaced(BlockState state, World worldIn, BlockPos pos, BlockState newState, boolean isMoving)
     {
         TileEntity tileentity = worldIn.getTileEntity(pos);
 
-        if (tileentity instanceof TileEntityBarrel && !((TileEntityBarrel)tileentity).isCreativeBroken())
+        if (tileentity instanceof BarrelTileEntity && !((BarrelTileEntity)tileentity).isCreativeBroken())
         {
-            TileEntityBarrel tileBarrel = (TileEntityBarrel)tileentity;
+            BarrelTileEntity tileBarrel = (BarrelTileEntity)tileentity;
             ItemStack stack = new ItemStack(Item.getItemFromBlock(this));
-            IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
-            IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
+            IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
             assert itemCap != null;
             itemCap.copyContainer(tileCap);
             
             spawnAsEntity(worldIn, pos, stack);
         }
 
-        super.breakBlock(worldIn, pos, state);
+        super.onReplaced(state, worldIn, pos, newState, isMoving);
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public ItemStack getItem(World worldIn, BlockPos pos, @Nonnull IBlockState state)
+    public ItemStack getItem(IBlockReader worldIn, BlockPos pos, BlockState state)
     {
         ItemStack stack = super.getItem(worldIn, pos, state);
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
-        
-        if(tileBarrel instanceof TileEntityBarrel)
+
+        if(tileBarrel instanceof BarrelTileEntity)
         {
-            IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
-            IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            IBarrel tileCap = tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
+            IBarrel itemCap = stack.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
             assert itemCap != null;
             itemCap.copyContainer(tileCap);
         }
-        
+
         return stack;
     }
-    
+
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withRotation(@Nonnull IBlockState state, Rotation rot)
+    public BlockState rotate(@Nonnull BlockState state, Rotation rot)
     {
-        return state.withProperty(FACING, rot.rotate(state.getValue(FACING)));
+        return state.with(FACING, rot.rotate(state.get(FACING)));
     }
     
     @Nonnull
     @Override
     @SuppressWarnings("deprecation")
-    public IBlockState withMirror(@Nonnull IBlockState state, Mirror mirrorIn)
+    public BlockState mirror(@Nonnull BlockState state, Mirror mirrorIn)
     {
-        return state.withRotation(mirrorIn.toRotation(state.getValue(FACING)));
+        return state.rotate(mirrorIn.toRotation(state.get(FACING)));
     }
     
     @Override
     @Deprecated
     @SuppressWarnings("deprecation")
-    public boolean hasComparatorInputOverride(IBlockState state)
+    public boolean hasComparatorInputOverride(BlockState state)
     {
         return true;
     }
@@ -393,13 +374,13 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
     @Override
     @Deprecated
     @SuppressWarnings("deprecation")
-    public int getComparatorInputOverride(IBlockState blockState, World worldIn, BlockPos pos)
+    public int getComparatorInputOverride(BlockState blockState, World worldIn, BlockPos pos)
     {
         TileEntity tileBarrel = worldIn.getTileEntity(pos);
         
-        if(tileBarrel instanceof TileEntityBarrel)
+        if(tileBarrel instanceof BarrelTileEntity)
         {
-            CapabilityBarrel tileCap = (CapabilityBarrel)tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null);
+            CapabilityBarrel tileCap = (CapabilityBarrel)tileBarrel.getCapability(BdsmCapabilies.BARREL_CAP, null).orElse(null);
             assert tileCap != null;
             long max = tileCap.getStackCap() < 0 ? (1 << 15) : tileCap.getStackCap();
             max *= tileCap.getRefFluid() != null ? 1000L : tileCap.getRefItem().getMaxStackSize();
@@ -409,9 +390,9 @@ public class BlockBarrelBase extends BlockDirectional implements ITileEntityProv
         
         return 0;
     }
-    
+
     @Override
-    public boolean canCreatureSpawn(@Nonnull IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, net.minecraft.entity.EntityLiving.SpawnPlacementType type)
+    public boolean canCreatureSpawn(BlockState state, IBlockReader world, BlockPos pos, PlacementType type, EntityType<?> entityType)
     {
         return true;
     }

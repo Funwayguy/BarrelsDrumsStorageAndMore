@@ -1,0 +1,22 @@
+{
+    "itemGroup.bdsandm": "Barrels, Drums, Storage & More",
+
+    "block.bdsandm.wood_crate": "Деревянный ящик",
+    "block.bdsandm.metal_crate": "Металлический ящик",
+    "block.bdsandm.wood_barrel": "Деревянная бочка",
+    "block.bdsandm.metal_barrel": "Металлическая бочка",
+    "block.bdsandm.shipping_container": "Транспортный контейнер",
+
+    "item.bdsandm.upgrade_64": "Обновление: Ёмкость x64",
+    "item.bdsandm.upgrade_256": "Обновление: Ёмкость x256",
+    "item.bdsandm.upgrade_1024": "Обновление: Ёмкость x1024",
+    "item.bdsandm.upgrade_4096": "Обновление: Ёмкость x4096",
+    "item.bdsandm.upgrade_creative": "Обновление: Творческая ёмкость",
+    "item.bdsandm.upgrade_ore": "Обновление: Словарь руды",
+    "item.bdsandm.upgrade_void": "Обновление: Пустотное переполнение",
+    "item.bdsandm.upgrade_uninstall": "Удаление обновлений",
+    "item.bdsandm.crate_key": "Ключ от ящика",
+    "item.bdsandm.color_tool": "Цветной инструмент",
+
+    "bdsandm.shipping.gui": "Транспортный контейнер"
+}

@@ -1,0 +1,18 @@
+newmtl A
+map_Kd bdsandm:blocks/shipping_container
+forge_TintIndex 0
+
+newmtl B
+map_Kd bdsandm:blocks/shipping_container_detail_0
+forge_TintIndex 1
+
+newmtl C
+map_Kd bdsandm:blocks/shipping_container_detail_1
+forge_TintIndex 2
+
+newmtl D
+forge_TintIndex 3
+
+Ka 0.000000 0.000000 0.000000
+Kd 0.8 0.8 0.8
+d 1

@@ -1,13 +1,13 @@
 package funwayguy.bdsandm.inventory.capability;
 
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.Nonnull;
 
-public interface IStackContainer extends INBTSerializable<NBTTagCompound>
+public interface IStackContainer extends INBTSerializable<CompoundNBT>
 {
     IStackContainer setCallback(ICrateCallback callback);
     void syncContainer();
@@ -27,7 +27,7 @@ public interface IStackContainer extends INBTSerializable<NBTTagCompound>
     //boolean oreDict();
     //void setOreDict(boolean state);
     
-    boolean installUpgrade(@Nonnull EntityPlayer player, @Nonnull ItemStack stack);
+    boolean installUpgrade(@Nonnull PlayerEntity player, @Nonnull ItemStack stack);
     
     void copyContainer(IStackContainer container);
     

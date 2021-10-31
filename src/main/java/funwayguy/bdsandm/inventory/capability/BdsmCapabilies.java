@@ -1,8 +1,9 @@
 package funwayguy.bdsandm.inventory.capability;
 
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.INBT;
+import net.minecraft.nbt.INBT;
+import net.minecraft.util.Direction;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.Capability.IStorage;
 import net.minecraftforge.common.capabilities.CapabilityInject;
@@ -23,17 +24,17 @@ public class BdsmCapabilies
         {
             @Nullable
             @Override
-            public NBTBase writeNBT(Capability<ICrate> capability, ICrate instance, EnumFacing side)
+            public INBT writeNBT(Capability<ICrate> capability, ICrate instance, Direction side)
             {
                 return instance.serializeNBT();
             }
-    
+
             @Override
-            public void readNBT(Capability<ICrate> capability, ICrate instance, EnumFacing side, NBTBase nbt)
+            public void readNBT(Capability<ICrate> capability, ICrate instance, Direction side, INBT nbt)
             {
-                if(nbt instanceof NBTTagCompound)
+                if(nbt instanceof CompoundNBT)
                 {
-                    instance.deserializeNBT((NBTTagCompound)nbt);
+                    instance.deserializeNBT((CompoundNBT)nbt);
                 }
             }
         }, () -> new CapabilityCrate(64, 1024));
@@ -42,17 +43,17 @@ public class BdsmCapabilies
         {
             @Nullable
             @Override
-            public NBTBase writeNBT(Capability<IBarrel> capability, IBarrel instance, EnumFacing side)
+            public INBT writeNBT(Capability<IBarrel> capability, IBarrel instance, Direction side)
             {
                 return instance.serializeNBT();
             }
     
             @Override
-            public void readNBT(Capability<IBarrel> capability, IBarrel instance, EnumFacing side, NBTBase nbt)
+            public void readNBT(Capability<IBarrel> capability, IBarrel instance, Direction side, INBT nbt)
             {
-                if(nbt instanceof NBTTagCompound)
+                if(nbt instanceof CompoundNBT)
                 {
-                    instance.deserializeNBT((NBTTagCompound)nbt);
+                    instance.deserializeNBT((CompoundNBT)nbt);
                 }
             }
         }, () -> new CapabilityBarrel(64, 1024));

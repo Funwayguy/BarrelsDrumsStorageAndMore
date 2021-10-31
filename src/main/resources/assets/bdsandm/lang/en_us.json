@@ -1,0 +1,22 @@
+{
+    "itemGroup.bdsandm": "Barrels, Drums, Storage & More",
+
+    "block.bdsandm.wood_crate": "Wooden Crate",
+    "block.bdsandm.metal_crate": "Metal Crate",
+    "block.bdsandm.wood_barrel": "Wooden Barrel",
+    "block.bdsandm.metal_barrel": "Metal Drum",
+    "block.bdsandm.shipping_container": "Shipping Container",
+
+    "item.bdsandm.upgrade_64": "Upgrade: Capacity x64",
+    "item.bdsandm.upgrade_256": "Upgrade: Capacity x256",
+    "item.bdsandm.upgrade_1024": "Upgrade: Capacity x1024",
+    "item.bdsandm.upgrade_4096": "Upgrade: Capacity x4096",
+    "item.bdsandm.upgrade_creative": "Upgrade: Capacity Creative",
+    "item.bdsandm.upgrade_ore": "Upgrade: Ore Dictionary",
+    "item.bdsandm.upgrade_void": "Upgrade: Void Overflow",
+    "item.bdsandm.upgrade_uninstall": "Uninstall Upgrades",
+    "item.bdsandm.crate_key": "Crate Key",
+    "item.bdsandm.color_tool": "Color Tool",
+
+    "bdsandm.shipping.gui": "Shipping Container"
+}
