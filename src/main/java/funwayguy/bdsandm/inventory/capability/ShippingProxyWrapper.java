@@ -69,17 +69,17 @@ public class ShippingProxyWrapper implements IItemHandler, IFluidHandler, IEnerg
                 invoItems.add(new ProxyEntry<>(i, itemHandler));
             }
             
-            if(stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).isPresent())
+            IFluidHandlerItem fluidHandlerItem = stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
+            if(fluidHandlerItem != null) // TODO: .isPresent() npe ?
             {
-                IFluidHandlerItem fluidHandlerItem = stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null).orElse(null);
-                assert fluidHandlerItem != null;
+//                assert fluidHandlerItem != null;
                 fluidItems.add(new ProxyEntry<>(i, fluidHandlerItem));
             }
-            
-            if(stack.getCapability(CapabilityEnergy.ENERGY, null).isPresent())
+
+            IEnergyStorage energyStorage = stack.getCapability(CapabilityEnergy.ENERGY, null).orElse(null);
+            if(energyStorage != null)
             {
-                IEnergyStorage energyStorage = stack.getCapability(CapabilityEnergy.ENERGY, null).orElse(null);
-                assert energyStorage != null;
+//                assert energyStorage != null;
                 energyItems.add(new ProxyEntry<>(i, energyStorage));
             }
         }

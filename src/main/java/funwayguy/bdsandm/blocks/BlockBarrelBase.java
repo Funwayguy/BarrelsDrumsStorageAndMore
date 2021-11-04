@@ -184,6 +184,7 @@ public class BlockBarrelBase extends DirectionalBlock implements IStorageBlock {
                             if(transStack.getCount() != prev) heldCrate.extractItem(s, (prev - transStack.getCount()) / held.getCount(), false);
                         }
                     }
+                    
                 } else
                 {
                     player.setHeldItem(hand, barrel.insertItem(barrel.getSlots() - 1, held, false));

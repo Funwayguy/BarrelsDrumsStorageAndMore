@@ -55,7 +55,7 @@ public class CapabilityProviderCrate implements ICapabilityProvider, ICapability
             return instance.cast();
         }
         
-        return null;
+        return LazyOptional.empty();
     }
     
     @Override

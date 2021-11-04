@@ -66,7 +66,7 @@ public class CapabilityProviderBarrel implements ICapabilityProvider, ICapabilit
             return instance.cast();
         }
         
-        return null;
+        return LazyOptional.empty();
     }
     
     @Override
